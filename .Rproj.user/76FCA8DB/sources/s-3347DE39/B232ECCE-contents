@@ -9,6 +9,8 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(magrittr)
 ```
 
 ## 1. Show that the properties of least squares estimators are satisfied using the following definitions:
@@ -56,4 +58,16 @@ $$
 ( \hat Y )'\hat \epsilon =(HY)'(I-H)Y=Y'H(I-H)Y=Y'(H-H)Y=Y'0Y=0
  $$
 Here we used the fact that $H$ is symetric and idempotent ($H^2=H$).
+
+
+## Given the response variable y and the covariates x2 and x3 in
+the dataset Transform V2.txt dataset , check if is necessary to transform any variable and the residual graphs to show that the transformed model is correct.
+
+```{r}
+TransformV2=readr::read_table("Transform_V2.txt")
+
+
+
+```
+
 
