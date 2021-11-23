@@ -1,0 +1,59 @@
+---
+title: "Multiple Regression"
+author: "Ignacio Almodovar & Andres Mejia"
+date: "11/23/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Show that the properties of least squares estimators are satisfied using the following definitions:
+
+$$
+\begin{matrix}
+\hat{\beta}=(X'X)^{-1}X'Y\\
+\hat Y=X(X'X)^{-1}X'Y=HY\\
+\hat\epsilon=Y-\hat Y=(I-H)Y
+\end{matrix}
+$$
+
+### The residuals are orthogonal to the predictors.
+### The sum of the residuals is zero.
+
+This property is equivalent to $x_i^t \hat \epsilon=0$ or in matrix form $X'\hat \epsilon =0$, this also includes the second result due to the fact that $X$ contains a column of ones in order to account for the intercept term. To see why this is true consider.
+
+$$
+X'\hat \epsilon=X'(I-H)Y=X'(I-X(X'X)^{-1}X')Y=(X'-X'X(X'X)^{-1}X')Y=(X'-X')Y=0
+$$
+
+### The sum of the observed data is equal to the sum of the fitted values:
+
+To prove this we will use the following descomposition of the $Y$ vector.
+
+
+$$
+Y=HY+(I-H)Y=\hat Y +\hat \epsilon
+$$
+Then multiplying with a column of ones and using the ortogonality of the ones with the error term
+
+$$
+\begin{matrix}
+1^tY=1^t\hat  Y +1^t \hat \epsilon\\
+\sum_{i=1}^n Y_i= \sum_{i=1}^n \hat Y_i +0=\sum_{i=1}^n \hat Y_i
+\end{matrix}
+$$
+
+
+ ### The residuals are orthogonal to the fitted values.
+ 
+ Let's calculate the product
+ 
+ $$
+( \hat Y )'\hat \epsilon =(HY)'(I-H)Y=Y'H(I-H)Y=Y'(H-H)Y=Y'0Y=0
+ $$
+Here we used the fact that $H$ is symetric and idempotent ($H^2=H$).
+
