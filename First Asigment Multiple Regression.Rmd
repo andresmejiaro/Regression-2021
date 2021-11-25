@@ -9,6 +9,9 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
 ```
 
 ## 1. Show that the properties of least squares estimators are satisfied using the following definitions:
@@ -55,5 +58,84 @@ $$
  $$
 ( \hat Y )'\hat \epsilon =(HY)'(I-H)Y=Y'H(I-H)Y=Y'(H-H)Y=Y'0Y=0
  $$
-Here we used the fact that $H$ is simetric and $H$ is idempotent ($H^2=H$).
+Here we used the fact that $H$ is symetric and idempotent ($H^2=H$).
+
+
+## Given the response variable y and the covariates x2 and x3 in
+the dataset Transform V2.txt dataset , check if is necessary to transform any variable and the residual graphs to show that the transformed model is correct.
+
+```{r}
+
+TransformV2=readr::read_table("Transform_V2.txt")
+
+library(psych)
+pairs.panels(TransformV2, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+
+
+pairs.panels(TransformV2, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+
+autoplot(lm(data=TransformV2,y~x2))
+
+
+autoplot(lm(data=TransformV2,y~x2+x2^2+x3+x3^2))
+
+
+
+
+```
+
+
+
+```{r}
+Transform2_V2=readr::read_table("Transform2_V2.txt")
+
+pairs.panels(Transform2_V2, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+
+MASS::boxcox(data=Transform2_V2,y2~x1+x2)
+
+Transform2_V2 %<>% mutate(y2=log(y2+1))
+Transform2_V2 %<>% mutate(y2=(y2^-1-1)*-1)
+
+pairs.panels(Transform2_V2, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+
+
+modelo1=lm(data=Transform2_V2,y2~.)
+
+autoplot(modelo1)
+
+MASS::boxcox(data=Transform2_V2,y2~x1+x2)
+
+
+TransformV2$y2p=-(TransformV2$y2^-(-1)-1)
+
+modelo2=lm(y2p~x2,data=TransformV2)
+plot(modelo2)
+hist(TransformV2$x2)
+
+```
+
 
