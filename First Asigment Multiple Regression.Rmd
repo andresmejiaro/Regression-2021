@@ -137,5 +137,62 @@ plot(modelo2)
 hist(TransformV2$x2)
 
 ```
+Here we used the fact that $H$ is symmetric and $H$ is idempotent ($H^2=H$).
+
+# 2. Using model modall, check numerically that the properties of the least squares estimates are satisfied.
+
+### The sum of the residuals is 0 
+
+$$\sum^{n}_{i=1}=\hat{\epsilon_i}$$
+```{r}
+bodyfat <- read.table(file = "Datasets_Chapters_1_to_4/bodyfat.txt", header = TRUE)
+modall <- lm(hwfat ~., data = bodyfat)
+sum(modall$residuals)
+```
+
+### The sum of the observed data is equal to the sum of the fitted values
+
+$$\sum^n_{i=1}Y_i=\sum^n_{i=1}\hat{Y}_i$$
+
+```{r}
+sum(bodyfat$hwfat)
+sum(modall$fitted.values)
+```
+
+### The residuals are orthogonal to the preditors
+
+$$\sum_{i=1}^n x_{i}\hat{\epsilon}_i$$
+
+```{r}
+bodymatrix=as.matrix(select(bodyfat,-hwfat))
+sum(t(bodymatrix)%*%modall$residuals)
+```
+
+
+### The residuals are orthogonal to the fitted values
+
+$$\sum_{i=1}^n \hat{y_{i}}\hat{\epsilon}_i$$
+
+```{r}
+sum(modall$fitted.values*modall$residuals)
+```
+
+# 3.Check that for the dataset index.txt, the least squares es- timates of the parameters are: βˆ0 = 4.267 and βˆ1 = 1.373, using the results in section 2.4.1 (not using the lm() function). 
+
+
+$$\hat{\beta_0}=\overline Y - \hat{\beta_1}\overline X$$
+$$\hat{\beta_1}=\frac{S_{xy}}{S^2_x}$$
+
+```{r}
+indice=read.table(file="index.txt", header = TRUE)
+hatx=mean(indice$PovPct)
+haty=mean(indice$Brth15to17)
+varx=var(indice$PovPct)
+samcov=cov(indice$PovPct,indice$Brth15to17)
+b1=samcov/varx
+b0=haty-b1*hatx
+cat("b0=",b0,"b1=",b1)
+```
+
 
 
