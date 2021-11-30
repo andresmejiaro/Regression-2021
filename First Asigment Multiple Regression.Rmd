@@ -3,7 +3,7 @@ title: "Multiple Regression"
 author: "Ignacio Almodovar & Andres Mejia"
 date: "11/23/2021"
 output:
-  #pdf_document: default
+  pdf_document: default
   html_document: default
 ---
 
@@ -15,6 +15,8 @@ library(ggplot2)
 library(glmnet)
 library(psych)
 library(ggfortify)
+library(caret)
+library(stringr)
 setwd("Datasets_Chapters_1_to_4")
 ```
 
@@ -102,7 +104,7 @@ $$\sum_{i=1}^n \hat{y_{i}}\hat{\epsilon}_i$$
 sum(modall$fitted.values*modall$residuals)
 ```
 
-# 3.Check that for the dataset index.txt, the least squares es- timates of the parameters are: βˆ0 = 4.267 and βˆ1 = 1.373, using the results in section 2.4.1 (not using the lm() function). 
+# 3.Check that for the dataset index.txt, the least squares es- timates of the parameters are: $\hat\beta_{0}=4.267$ and $\hat\beta_{1}= 1.373$, using the results in section 2.4.1 (not using the lm() function). 
 
 
 $$\hat{\beta_0}=\overline Y - \hat{\beta_1}\overline X$$
@@ -124,9 +126,8 @@ cat("b0=",b0,"b1=",b1)
 
 #4  Given the response variable y and the covariates x2 and x3 in the dataset Transform V2.txt dataset , check if is necessary to transform any variable and the residual graphs to show that the transformed model is correct.
 
-```{r,echo=false}
-TransformV2=readr::read_table("Transform_V2.txt")
-
+```{r}
+TransformV2=readr::read_table("Datasets_Chapters_1_to_4/Transform_V2.txt")
 ```
 
 First of all we plot a panel where we can see and compare the different distributions that our predictors follow, as well as the correlations between them. 
@@ -162,20 +163,6 @@ As we saw before, in the first panel of plots we saw that the response Y was ver
 m4=lm(data=TransformV2,y~x3+I(x3^(1/2)))
 summary(m4)
 autoplot(m4)
-
-# m6=lm(data=TransformV2,y~x3+I(x3^(2)))
-# summary(m6)
-# autoplot(m6)
-# 
-# m5=lm(data=TransformV2,y~x2+I(x2^2))
-# summary(m5)
-# autoplot(lm(data=TransformV2,y~x2+x2^2+x2^3+x3+x3^2+x3^3))
-# autoplot(m5)
-# 
-# infa=influence.measures(m4)
-# infa
-# 
-# sort(infa$infmat[,"cook.d"]4/)
 
 ```
 
@@ -221,6 +208,7 @@ pairs.panels(Transform2_V2,
              ellipses = TRUE # show correlation ellipses
              )
 ```
+
 Once we have our response normalized, we can compute our new model using again just one of the predictors, as both of them are very correlated between them and with the response variable.
 
 ```{r}
@@ -229,7 +217,7 @@ summary(m2)
 autoplot(m2)
 ```
 
-#6 In the case of ridge regression, calculate bias $\hat\beta$ and show that $Var(\hat\beta)\geq Var(\hat\beta)$
+# 6. In the case of ridge regression, calculate bias $\hat\beta$ and show that $Var(\hat\beta)\geq Var(\hat\beta)$
 
 We can write the bias of the ridge estimator as:
 
@@ -240,29 +228,41 @@ $$\hat\beta_\lambda=(X^tX+\lambda I)^{-1}X^{t}(X\beta+\epsilon)=(X^tX+\lambda I)
 
 Therefore, the expected value of $\hat\beta_\lambda$:
 
-$$E[\hat\beta_\lambda]=(X^tX+\lambda I)^{-1}X^{t}X\beta + (X^tX+\lambda I)^{-1}X^tE[\epsilon]\\=(X^tX+\lambda I)^{-1}X^{t}X\beta*0=\\ =(X^tX+\lambda I)^{-1}X^{t}X\beta$$
+$$
+\begin{matrix}
+E[\hat\beta_\lambda]=(X^tX+\lambda I)^{-1}X^{t}X\beta + (X^tX+\lambda I)^{-1}X^tE[\epsilon]=\\(X^tX+\lambda I)^{-1}X^{t}X\beta*0=\\ (X^tX+\lambda I)^{-1}X^{t}X\beta
+\end{matrix}
+$$
 With this result we can say that the ridge estimator is unbiased if and only if $(X^tX+\lambda I)^{-1}X^{t}X=I$. This is only possible if $\lambda=0$ and that is when the ridge estimator coincides with the OLS estimator. Therefore, the bias of the estimator is:
 
-$$E[\beta_{\lambda}]-\beta=  (X^tX+\lambda I)^{-1}X^{t}X\beta = (X^tX+\lambda I)^{-1}X^{t}X\beta-(X^tX)^{-1}X^tX\beta=\\=[(X^tX+\lambda I)^{-1}-(X^tX)^{-1}]X^tX\beta$$
+$$
+\begin{matrix}
+E[\beta_{\lambda}]-\beta=  (X^tX+\lambda I)^{-1}X^{t}X\beta = (X^tX+\lambda I)^{-1}X^{t}X\beta-(X^tX)^{-1}X^tX\beta=\\ [(X^tX+\lambda I)^{-1}-(X^tX)^{-1}]X^tX\beta
+\end{matrix}$$
 
 To show that $Var[\hat\beta_{OLS}]\geq Var[\hat\beta_{ridge}]$:
 
 We know that $Var[\hat\beta]=\sigma^2(X^tX)^{-1}$. Then,
 
 $$
-Var[\hat\beta_\lambda]=\sigma^2(X^tX+\lambda I)^{-1}X^tX(X^tX+\lambda I)^{-1}=\\=\sigma^2(X^tX+\lambda I)^{-1}X^tX(X^tX)^{-1}X^tX(X^tX+\lambda I)^{-1}
+\begin{matrix}
+Var[\hat\beta_\lambda]=\sigma^2(X^tX+\lambda I)^{-1}X^tX(X^tX+\lambda I)^{-1}=\\ \sigma^2(X^tX+\lambda I)^{-1}X^tX(X^tX)^{-1}X^tX(X^tX+\lambda I)^{-1}
+\end{matrix}
 $$
 Defining M as $M=X^tX(X^tX+\lambda I)^{-1}$, the difference of variances is:
 
 $$
-Var[\hat\beta_{OLS}] - Var[\hat\beta_{ridge}]  =  \sigma^2(X^tX)^{-1} - \sigma^2M^t(X^tX)^{-1}M=\\ =\sigma^2[M^t(M^t)^{-1}(X^tX)^{-1}M^{-1}M - M^t(X^tX)^{-1}M]=\\
-=\sigma^2M^t[(M^t)^{-1}(X^tX)^{-1}M^{-1}-(X^tX)^{-1}]M=\\
-=\sigma^2M^t[(X^tX)^{-1}(X^tX+\lambda)(X^tX)^{-1}(X^tX+\lambda)(X^tX)^{-1}-(X^tX)^{-1} ]M=\\
-=\sigma^2M^t[(I+\lambda(X^tX)^{-1})(X^tX)^{-1}(I+\lambda(X^tX)^{-1})-(X^tX)^{-1}]M=\\
-=\sigma^2M^t[((X^tX)^{-1}+\lambda(X^tX)^{-2})(I+\lambda(X^tX)^{-1})-(X^tX)^{-1}]M=\\
-=\sigma^2 M^t[(X^tX)^{-1}+\lambda (X^tX)^{-2}+\lambda(X^tX)^{-2}+\lambda^2(X^tX)^{-3}-(X^tX)^{-1}]M=\\
-=\sigma^2 M^t[2\lambda(X^tX)^{-2}+\lambda^2(X^tX)^{-3}]M=\\
-=\sigma^2(X^tX+\lambda I)^{-1}X^tX[2\lambda(X^tX)^{-2}+\lambda^2(X^tX)^{-3}]X^tX(X^tX+\lambda I)^{-1}=\\=\sigma^2(X^tX+\lambda I)^{-1}[2\lambda I+\lambda^2(X^tX)^{-1}](X^tX+\lambda I)^{-1}
+\begin{matrix}
+Var[\hat\beta_{OLS}] - Var[\hat\beta_{ridge}]  =  \sigma^2(X^tX)^{-1} - \sigma^2M^t(X^tX)^{-1}M=\\ \sigma^2[M^t(M^t)^{-1}(X^tX)^{-1}M^{-1}M - M^t(X^tX)^{-1}M]=\\
+\sigma^2M^t[(M^t)^{-1}(X^tX)^{-1}M^{-1}-(X^tX)^{-1}]M=\\
+\sigma^2M^t[(X^tX)^{-1}(X^tX+\lambda)(X^tX)^{-1}(X^tX+\lambda)(X^tX)^{-1}-(X^tX)^{-1} ]M=\\
+\sigma^2M^t[(I+\lambda(X^tX)^{-1})(X^tX)^{-1}(I+\lambda(X^tX)^{-1})-(X^tX)^{-1}]M=\\
+\sigma^2M^t[((X^tX)^{-1}+\lambda(X^tX)^{-2})(I+\lambda(X^tX)^{-1})-(X^tX)^{-1}]M=\\
+\sigma^2 M^t[(X^tX)^{-1}+\lambda (X^tX)^{-2}+\lambda(X^tX)^{-2}+\lambda^2(X^tX)^{-3}-(X^tX)^{-1}]M=\\
+\sigma^2 M^t[2\lambda(X^tX)^{-2}+\lambda^2(X^tX)^{-3}]M=\\
+\sigma^2(X^tX+\lambda I)^{-1}X^tX[2\lambda(X^tX)^{-2}+\lambda^2(X^tX)^{-3}]X^tX(X^tX+\lambda I)^{-1}=\\
+\sigma^2(X^tX+\lambda I)^{-1}[2\lambda I+\lambda^2(X^tX)^{-1}](X^tX+\lambda I)^{-1}
+\end{matrix}
 $$
 If $\lambda>0$, the latter matrix is positive definite because for any $v\neq 0$, we have:
 
@@ -270,13 +270,15 @@ $$z=(X^tX+\lambda I)^{-1}v\neq0$$
 Therefore, we finally have:
 
 $$
+\begin{matrix}
 v^T(Var[\hat\beta_{OLS}] - Var[\hat\beta_{ridge}])v=\sigma^2z^t(2\lambda I+\lambda^2(X^tX)^{-1})z=\sigma^2\lambda z^tz+\sigma^2\lambda^2x^t(X^tX)^{-1}z>0
+\end{matrix}
 $$
 Because $X^tX$ and its inverse are positive definite.
 
-#7 Calculate the value of R2 and Ra2 for model fit.ridge and compare them with the results of modall (modall <- lm(hwfat ., data = bodyfat))
+# 7. Calculate the value of R2 and Ra2 for model fit.ridge and compare them with the results of modall (modall <- lm(hwfat ., data = bodyfat))
 
-We will use the code used in class in order to create and predict the ridge's regression model.
+We will use the code used in class in order to create and predict the ridge regression model.
 
 ```{r}
 bodyfat=read.table("Datasets_Chapters_1_to_4/bodyfat.txt")
@@ -309,7 +311,7 @@ cat("R2=",r2,"R2adj=",r2adj)
 
 From the slides, we get that in the original model $R^2=0.8918$ and $R^2_{adj}=0.8827$. As we can see, these values are slightly higher than the ridge model.
 
-#8 The dataset insurance.csv contains data of insurance premiums paid by people in USA depending on their personal characteristics.
+# 8. The dataset insurance.csv contains data of insurance premiums paid by people in USA depending on their personal characteristics.
 
 ## a) Find the model that gives the best prediction
 
@@ -318,9 +320,8 @@ First of all, we are going to split our data into two sets, training and testing
 Finally we can quantify the prediction error between the observed and the predicted outcome values.
 
 ```{r}
-library(caret)
-library(stringr)
 insurance=readr::read_csv("Datasets_Chapters_1_to_4/insurance.csv")
+insurance$children %<>% as.factor()
 index=createDataPartition(insurance$charges,p=0.7)
 trainset=insurance[index$Resample1,]
 testset=insurance[-index$Resample1,]
@@ -334,99 +335,99 @@ indicemax=which.max(t$y)
 lambda=t$x[indicemax]
 
 trainset$y2=forecast::BoxCox(trainset$charges,lambda)
-crossvalidation$y2=forecast::BoxCox(crossvalidation$charges,lambda)
-finalset$y2=forecast::BoxCox(finalset$charges,lambda)
+testset$y2=forecast::BoxCox(testset$charges,lambda)
 ```
 
 Now we will train the first model, we will use the predictors that we might have a strong relationship with the response variable. Therefore, we are going to use the predictors: age, sex and two interactions, bmi with smokers as we think that bmi is only a risk factor when a person smokes and sex with number of children as we think that the market behaves differently with men and women regard to premium of each child.
 
 ```{r}
-insurance$children %<>% as.factor()
-modelo_0_logico=lm(data=trainset,charges~age+bmi:smoker+sex+sex:children)
+modelo_0_logico=lm(data=trainset,y2~age+bmi:smoker+sex+sex:children)
 summary(modelo_0_logico)
 autoplot(modelo_0_logico)
 ```
 
-From this model we notice that in the residuals vs fitted there are four "zones". Coloring based on bmi and smoker we the following information, on which we are going to base the rest of the model. 
+From this model we notice that in the residuals vs fitted there are three "zones". Coloring based on bmi and smoker we the following information, on which we are going to base the rest of the model. 
 
 ```{r}
 trainset$residuales=modelo_0_logico$residuals
 trainset$fit1=modelo_0_logico$fitted.values
 
 ggplot(trainset,aes(x=residuales,y=fit1,color=smoker)) + geom_point()
+ggplot(trainset,aes(x=residuales,y=fit1,color=bmi)) + 
+  geom_point() + scale_color_continuous(type = "viridis")
 
-ggplot(trainset,aes(x=residuales,y=fit1,color=bmi)) + geom_point() + scale_color_continuous(type = "viridis")
+trainset$highbmi=trainset$bmi<30
+testset$highbmi=testset$bmi>30
+
+trainset$bmi1=trainset$bmi %>% cut(c(0,20,30,100))
+testset$bmi1=testset$bmi %>% cut(c(0,20,30,100))
+
+ggplot(trainset,aes(x=residuales,y=fit1,color=bmi1)) + 
+  geom_point() + scale_color_discrete(type = "viridis")
 ```
 
+Using these predictors in the model.
 
 ```{r}
-insurance$highrisk=insurance$bmi>=30 & insurance$smoker=="yes" 
-insurance$north=str_detect(insurance$region,"north")
-insurance$highbmi=insurance$bmi>30
-
-
-#ggplot(trainset,aes(x=residuales,y=fit1,color=highrisk)) + geom_point()
-
-
-
-##Ajustamos charges
-
-
-#Best model so far ####
-modelo_1_ajustar_y=lm(data=trainset,y2~smoker:highbmi+region+smoker+children+age:region)
+modelo_1_ajustar_y=lm(data=trainset,y2~age:bmi1+smoker:bmi+region+children)
 summary(modelo_1_ajustar_y)
-autoplot(modelo_1_ajustar_y)[[1]] + geom_point(aes(color=trainset$children))
-plot(modelo_1_ajustar_y)
-#######################
+autoplot(modelo_1_ajustar_y)
 
-#ggplot(data=trainset,aes(sample=y2))+ geom_qq_line() + geom_qq()
-#qplot(trainset$age,geom="density")
-#trainset$residual=modelo_1_ajustar_y$residuals
-
-qplot(x=trainset$age,y=trainset$children,geom="boxplot")
-qplot(modelo_1_ajustar_y$residuals,geom="density")
-
-
-qplot(y=trainset$age,x=trainset$charges,color=trainset$bmi)  + scale_color_continuous(type = "viridis")
-
-trainset$children1=trainset$bmi %>% cut(c(0,18.5,25,30,100))
-
-qplot(y=trainset$age,x=trainset$charges,color=(trainset$children%in%c("1","2","3","4")))
-
-qplot(y=trainset$age,x=trainset$charges,color=trainset$highbmi)
-
-##Esta grafica muestra que hay dos poblaciones
-ggplot(data=trainset,aes(x=y2,color=smoker))+geom_density()
 ```
+We notice that when added the variable age, the predictive power of the model increases significantly, however the structure of the residuals is significantly worse. We suspect this is due to colinearity, we will use Ridge regression to see if any improvements can be made.
 
-
-Estudiamos multicolinealidad
 ```{r}
-library(glmnet)
 #Calculate the regression matrix without the intercept
-X=model.matrix(y2~smoker:highbmi+region+smoker+children+age:region-1,data=trainset)
-#the function `glmnet` will chose a range of values of the ridge parameter
-#We need to specify alpha=0
+X=model.matrix(y2~age:bmi1+smoker:bmi+region+children-1,data=trainset)
+X2=model.matrix(y2~age:bmi1+smoker:bmi+region+children-1,data=testset)
+
 fit.ridge=glmnet(X,trainset$y2,alpha=0)
-#Plot estimated coefficients for different values of the ridge parameter plot(fit.ridge,xvar="lambda",label=TRUE)
-#legend(6,-0.2, c("age", "smoker", "children","region","highbmi"),lty=1:6,col=1:6,cex=0.8)
-
-cv.out = cv.glmnet(X, trainset$y2, alpha = 0) #alpha=0 means Ridge Regression plot(cv.out)
-
+cv.out = cv.glmnet(X, trainset$y2, alpha = 0)
 opt_lambda <- cv.out$lambda.min 
+
 #Fitting the model for that value of the ridge parameter
 modelo_final=predict(fit.ridge, type = "coefficients", s = opt_lambda)
-predicted=predict(fit.ridge,newx = X, s = opt_lambda)
+predicted=predict(fit.ridge,newx = X2, s = opt_lambda)
 
-residuos=predicted-trainset$y2
-qqnorm(residuos)
-
-qplot(residuos,trainset$y2)
-
-summary(modelo_final)
-
+residuos=predicted-testset$y2
+ggplot(data=testset,aes(sample=residuos))+ geom_qq_line() + geom_qq(color="lightblue")
+qplot(y=residuos,x=testset$y2)
 ```
 
+Let's calculate the $R^2$ in the testset for the Ridge regression.
 
+```{r}
+SST=sum((testset$y2-mean(testset$y2))^2)
+SSM=sum((predicted-mean(testset$y2))^2)
+SSE=sum((predicted-testset$y2)^2)
+
+r2=1-SSE/SST
+
+r2adj=1-(1-r2)*(400-1)/(400-9)
+
+cat("R2=",r2,"R2adj=",r2adj)
+```
+
+Let's calculate the $R^2$ in the testset for the Linear regression.
+
+```{r}
+predict_lineal=predict(modelo_1_ajustar_y,newdata=testset)
+
+SST=sum((testset$y2-mean(testset$y2))^2)
+SSM=sum((predict_lineal-mean(testset$y2))^2)
+SSE=sum((predict_lineal-testset$y2)^2)
+
+r2=1-SSE/SST
+
+r2adj=1-(1-r2)*(400-1)/(400-9)
+
+cat("R2=",r2,"R2adj=",r2adj)
+```
+
+As we can see the model does not get better with the Ridge regression. Therefore we will stick with the linear model that we created.
+
+## b) What is the profile of the people that pay more (or less) for their insurance?
+
+The people that are likely to pay more are the ones that have more than 4 children, smokers with a high bmi and generally, the premium increases with the age.
 
 
