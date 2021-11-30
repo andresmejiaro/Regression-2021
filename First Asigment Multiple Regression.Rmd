@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(magrittr)
 library(ggplot2)
+setwd("Datasets_Chapters_1_to_4")
 ```
 
 ## 1. Show that the properties of least squares estimators are satisfied using the following definitions:
@@ -51,93 +52,14 @@ $$
 $$
 
 
- ### The residuals are orthogonal to the fitted values.
- 
- Let's calculate the product
+### The residuals are orthogonal to the fitted values.
+
+Let's calculate the product
  
  $$
 ( \hat Y )'\hat \epsilon =(HY)'(I-H)Y=Y'H(I-H)Y=Y'(H-H)Y=Y'0Y=0
  $$
-Here we used the fact that $H$ is symetric and idempotent ($H^2=H$).
-
-
-## Given the response variable y and the covariates x2 and x3 in
-the dataset Transform V2.txt dataset , check if is necessary to transform any variable and the residual graphs to show that the transformed model is correct.
-
-```{r}
-
-TransformV2=readr::read_table("Transform_V2.txt")
-
-library(psych)
-pairs.panels(TransformV2, 
-             method = "pearson", # correlation method
-             hist.col = "#00AFBB",
-             density = TRUE,  # show density plots
-             ellipses = TRUE # show correlation ellipses
-             )
-
-
-
-pairs.panels(TransformV2, 
-             method = "pearson", # correlation method
-             hist.col = "#00AFBB",
-             density = TRUE,  # show density plots
-             ellipses = TRUE # show correlation ellipses
-             )
-
-
-autoplot(lm(data=TransformV2,y~x2))
-
-
-autoplot(lm(data=TransformV2,y~x2+x2^2+x3+x3^2))
-
-
-
-
-```
-
-
-
-```{r}
-Transform2_V2=readr::read_table("Transform2_V2.txt")
-
-pairs.panels(Transform2_V2, 
-             method = "pearson", # correlation method
-             hist.col = "#00AFBB",
-             density = TRUE,  # show density plots
-             ellipses = TRUE # show correlation ellipses
-             )
-
-
-MASS::boxcox(data=Transform2_V2,y2~x1+x2)
-
-Transform2_V2 %<>% mutate(y2=log(y2+1))
-Transform2_V2 %<>% mutate(y2=(y2^-1-1)*-1)
-
-pairs.panels(Transform2_V2, 
-             method = "pearson", # correlation method
-             hist.col = "#00AFBB",
-             density = TRUE,  # show density plots
-             ellipses = TRUE # show correlation ellipses
-             )
-
-
-
-modelo1=lm(data=Transform2_V2,y2~.)
-
-autoplot(modelo1)
-
-MASS::boxcox(data=Transform2_V2,y2~x1+x2)
-
-
-TransformV2$y2p=-(TransformV2$y2^-(-1)-1)
-
-modelo2=lm(y2p~x2,data=TransformV2)
-plot(modelo2)
-hist(TransformV2$x2)
-
-```
-Here we used the fact that $H$ is symmetric and $H$ is idempotent ($H^2=H$).
+Here we used the fact that $H$ is symmetric and idempotent ($H^2=H$).
 
 # 2. Using model modall, check numerically that the properties of the least squares estimates are satisfied.
 
@@ -184,7 +106,7 @@ $$\hat{\beta_0}=\overline Y - \hat{\beta_1}\overline X$$
 $$\hat{\beta_1}=\frac{S_{xy}}{S^2_x}$$
 
 ```{r}
-indice=read.table(file="index.txt", header = TRUE)
+indice=read.table(file="Datasets_Chapters_1_to_4/index.txt", header = TRUE)
 hatx=mean(indice$PovPct)
 haty=mean(indice$Brth15to17)
 varx=var(indice$PovPct)
@@ -195,4 +117,273 @@ cat("b0=",b0,"b1=",b1)
 ```
 
 
+#4  Given the response variable y and the covariates x2 and x3 in
+the dataset Transform V2.txt dataset , check if is necessary to transform any variable and the residual graphs to show that the transformed model is correct.
 
+```{r}
+
+TransformV2=readr::read_table("Transform_V2.txt")
+
+library(psych)
+library(ggfortify)
+
+pairs.panels(TransformV2, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+
+autoplot(lm(data=TransformV2,y~x2))
+
+
+autoplot(lm(data=TransformV2,y~x2+x2^2+x3+x3^2))
+
+m4=lm(data=TransformV2,y~x3+I(x3^(1/2)))
+summary(m4)
+autoplot(m4)
+
+# m6=lm(data=TransformV2,y~x3+I(x3^(2)))
+# summary(m6)
+# autoplot(m6)
+# 
+# m5=lm(data=TransformV2,y~x2+I(x2^2))
+# summary(m5)
+# autoplot(lm(data=TransformV2,y~x2+x2^2+x2^3+x3+x3^2+x3^3))
+# autoplot(m5)
+# 
+# infa=influence.measures(m4)
+# infa
+# 
+# sort(infa$infmat[,"cook.d"]4/)
+
+```
+
+Bullet points
+
+1. Observamos que en las graficas de scale location y fitted tenemos una linea aproximadamente rectas con puntos distribuidos de forma homogenea tanto en la parte superior como inferior de la linea.
+
+2. Observamos que los residuales parecen distribuirse de manera normal viendo la gráfica qq.
+
+3. Ningun punto tiene una distacia de cook pronblematica, es decir, mayor a 0.5.
+
+
+# 5
+
+Antes
+
+```{r}
+Transform2_V2=readr::read_table("Transform2_V2.txt")
+
+pairs.panels(Transform2_V2, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+modelo0=lm(data=Transform2_V2,y2~x2)
+autoplot(modelo0)
+```
+
+
+Transformacion
+
+```{r}
+MASS::boxcox(data=Transform2_V2,y2~x1+x2)
+
+#Transform2_V2 %<>% mutate(y2=log(y2+1))
+Transform2_V2 %<>% mutate(y2=(y2^-1-1)*-1)
+```
+Dspues
+
+```{r}
+pairs.panels(Transform2_V2, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+
+m2=lm(data=Transform2_V2,y2~x1)
+summary(m2)
+autoplot(m2)
+
+
+```
+
+#6 
+
+#7
+
+#8
+
+
+```{r}
+insurance=read_csv("Datasets_Chapters_1_to_4/insurance.csv")
+head(insurance)
+
+pairs.panels(insurance %>% dplyr::select(y3,age2,charges), 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+#normalize charges
+w=MASS::boxcox(data=insurance,charges~.)
+insurance %<>% mutate(y2=log(charges+1),y3=(charges^(0.101)-1)/0.101)
+
+histogram(insurance$y2)
+histogram(insurance$y3)
+qplot(insurance$y2,geom = "density")
+qplot(insurance$y3,geom = "density")
+qqnorm(insurance$y2)
+ggplot(data=insurance,aes(sample=y2)) + geom_qq() + geom_qq_line()
+
+ggplot(data=insurance,aes(sample=y3))+ geom_qq_line() + geom_qq(color="red")
+
+qqnorm(insurance$y3)
+
+histogram(insurance$y3)
+t=median(insurance$y3)
+insurance$y4=insurance$y3-t
+y43=LambertW::Gaussianize(insurance$y3)
+histogram(y43)
+
+qqnorm(y43)
+
+
+w=BoxCox.lambda(insurance$age)
+insurance %<>% mutate(age2=(charges^(w)-1)/w)
+t22=BoxCox(insurance$age,w)
+insurance$age2=t22
+```
+
+En principio nos quedamos con la tranformacion boxcox con lambda=0.101
+
+```{r}
+ggplot(data=insurance,aes(y=y3,x=age,color=smoker)) + geom_point()
+names(insurance)
+modelo_1=lm(data=insurance,y3~age+smoker+age:smoker)
+summary(modelo_1)
+autoplot(modelo_1)
+
+insurance$r1=modelo_1$residuals
+insurance$fit1=modelo_1$fitted.values
+
+insurance$children %<>% as.factor()
+insurance$bmi1=insurance$bmi %>% cut(c(0,18.5,25,30,100))
+ggplot(data=insurance,aes(x=fit1,y=r1,color=region)) + geom_point()
+
+```
+
+```{r}
+modelo_2=lm(data=insurance,y3~age+smoker+age:smoker+bmi+bmi:smoker+children)
+summary(modelo_2)
+autoplot(modelo_2)
+```
+
+```{r}
+insurance$r1=modelo_2$residuals
+insurance$fit1=modelo_2$fitted.values
+
+ggplot(data=insurance,aes(x=age,y=region,color=groups)) + geom_boxplot()
+
+ggplot(data=insurance,aes(x=sex,fill=children))+ geom_bar() + facet_grid(vars(groups))
+
+insurance$groups=(insurance$fit1>18.3) | (insurance$r1>0.48)
+
+
+```
+```{r}
+modelo_3=lm(data=insurance,y3~age+I(age^2)+smoker+age:smoker+bmi+bmi:smoker+children+smoker:children)
+summary(modelo_3)
+plot(modelo_3)
+
+insurance$r1=modelo_3$residuals
+insurance$fit1=modelo_3$fitted.values
+
+ggplot(data=insurance,aes(x=fit1,y=r1,color= charges)) + geom_point()
+
+insurance$groups2=(insurance$r1>0.1)
+
+pairs.panels(insurance %>% dplyr::select(r1,bmi), 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+ggplot(data=insurance,aes(x=age,y=,color= groups,shape=smoker)) + geom_point() #scale_color_continuous(type="viridis")
+
+insurance$logbmi=log(insurance$bmi+1)
+
+
+```
+Volvemos a empezar!!!!!!!
+
+```{r}
+#dividimos data set en validacion y trainig
+library(caret)
+library(stringr)
+
+insurance=read_csv("Datasets_Chapters_1_to_4/insurance.csv")
+insurance$children %<>% as.factor()
+
+insurance$highrisk=insurance$bmi>=30 & insurance$smoker=="yes" 
+insurance$north=str_detect(insurance$region,"north")
+
+
+index=createDataPartition(insurance$charges,p=0.7)
+trainset=insurance[index$Resample1,]
+testset=insurance[-index$Resample1,]
+
+index2=createDataPartition(testset$charges,p=0.66)
+crossvalidation=testset[index2$Resample1,]
+finalset=testset[-index2$Resample1,]
+
+
+
+
+modelo_0_logico=lm(data=trainset,charges~age+bmi:smoker+sex+sex:children)
+summary(modelo_0_logico)
+autoplot(modelo_0_logico)
+
+##Ajustamos charges
+t=MASS::boxcox(data=testset,charges~smoker:age+region+smoker+bmi)
+indicemax=which.max(t$y)
+lambda=t$x[indicemax]
+
+trainset$y2=BoxCox(trainset$charges,lambda)
+crossvalidation$y2=BoxCox(crossvalidation$charges,lambda)
+finalset$y2=BoxCox(finalset$charges,lambda)
+
+#Best model so far ####
+modelo_1_ajustar_y=lm(data=trainset,y2~smoker:age+highrisk+region+smoker)
+summary(modelo_1_ajustar_y)
+autoplot(modelo_1_ajustar_y)[[1]] + geom_point(aes(color=trainset$children))
+plot(modelo_1_ajustar_y)
+#######################
+
+trainset$residual=modelo_1_ajustar_y$residuals
+qplot(y=trainset$bmi,x=trainset$age,color=trainset$residual>1)
+
+ggplot(data=trainset,aes(x=y2,color=smoker))+geom_density()
+
+trainset[349,]
+busqueda=trainset %>% filter( smoker=="yes")
+
+modelo_bruto=lm(data=trainset,y2~smoker+age+sex+children+region+bmi)
+
+MASS::stepAIC(modelo_bruto,scope = list(upper=~smoker*age*sex*children*region*bmi,lower=~1),direction = "both")
+
+autoplot(lm(formula = y2 ~ smoker + age + sex + children + region + bmi + 
+    smoker:age + smoker:bmi + smoker:children + age:children + 
+    region:bmi + age:region + smoker:sex + age:sex, data = trainset))
+
+```
+
+Ojo! Las poblaciones de fumadores y no fumadores son muy diferentes! Hacer dos modelos para cada 1
