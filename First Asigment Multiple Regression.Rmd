@@ -12,6 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(magrittr)
 library(ggplot2)
+library(glmnet)
+library(psych)
+library(ggfortify)
 setwd("Datasets_Chapters_1_to_4")
 ```
 
@@ -123,8 +126,7 @@ cat("b0=",b0,"b1=",b1)
 
 ```{r,echo=false}
 TransformV2=readr::read_table("Transform_V2.txt")
-library(psych)
-library(ggfortify)
+
 ```
 
 First of all we plot a panel where we can see and compare the different distributions that our predictors follow, as well as the correlations between them. 
@@ -188,7 +190,7 @@ Within this last transformation we can see that we have achieve the linear regre
 <!-- 3. Ningun punto tiene una distacia de cook pronblematica, es decir, mayor a 0.5. -->
 
 
-# 5
+# 5.Given the response variable y and the covariates x1 and x2 in the datset Transform2 V2.txt, check if is necessary to transform any variable and the residual graphs to show that the transformed model is correct.
 
 Again, for this exercise we are also going to plot a first panel to show how our data behaves.
 
@@ -227,7 +229,7 @@ summary(m2)
 autoplot(m2)
 ```
 
-#6
+#6 In the case of ridge regression, calculate bias $\hat\beta$ and show that $Var(\hat\beta)\geq Var(\hat\beta)$
 
 We can write the bias of the ridge estimator as:
 
@@ -272,162 +274,106 @@ v^T(Var[\hat\beta_{OLS}] - Var[\hat\beta_{ridge}])v=\sigma^2z^t(2\lambda I+\lamb
 $$
 Because $X^tX$ and its inverse are positive definite.
 
-#7
+#7 Calculate the value of R2 and Ra2 for model fit.ridge and compare them with the results of modall (modall <- lm(hwfat ., data = bodyfat))
 
-#8
-
+We will use the code used in class in order to create and predict the ridge's regression model.
 
 ```{r}
-insurance=readr::read_csv("Datasets_Chapters_1_to_4/insurance.csv")
-head(insurance)
+bodyfat=read.table("Datasets_Chapters_1_to_4/bodyfat.txt")
+#Calculate the regression matrix without the intercept 
+X=model.matrix(hwfat ~.-1,data=bodyfat)  
+fit.ridge=glmnet(X,bodyfat$hwfat,alpha=0) 
+cv.out = cv.glmnet(X, bodyfat$hwfat, alpha = 0)  #alpha=0 means Ridge Regression  
 
-pairs.panels(insurance %>% dplyr::select(y3,age2,charges), 
-             method = "pearson", # correlation method
-             hist.col = "#00AFBB",
-             density = TRUE,  # show density plots
-             ellipses = TRUE # show correlation ellipses
-             )
+opt_lambda <- cv.out$lambda.min 
 
-#normalize charges
-w=MASS::boxcox(data=insurance,charges~.)
-insurance %<>% mutate(y2=log(charges+1),y3=(charges^(0.101)-1)/0.101)
+#Fitting the model for that value of the ridge parameter 
+predict(fit.ridge, type = "coefficients", s = opt_lambda)
 
-histogram(insurance$y2)
-histogram(insurance$y3)
-qplot(insurance$y2,geom = "density")
-qplot(insurance$y3,geom = "density")
-qqnorm(insurance$y2)
-ggplot(data=insurance,aes(sample=y2)) + geom_qq() + geom_qq_line()
-
-ggplot(data=insurance,aes(sample=y3))+ geom_qq_line() + geom_qq(color="red")
-
-qqnorm(insurance$y3)
-
-histogram(insurance$y3)
-t=median(insurance$y3)
-insurance$y4=insurance$y3-t
-y43=LambertW::Gaussianize(insurance$y3)
-histogram(y43)
-
-qqnorm(y43)
-
-
-w=BoxCox.lambda(insurance$age)
-insurance %<>% mutate(age2=(charges^(w)-1)/w)
-t22=BoxCox(insurance$age,w)
-insurance$age2=t22
+predichos=predict(fit.ridge, newx=X, s = opt_lambda)
 ```
 
-En principio nos quedamos con la tranformacion boxcox con lambda=0.101
+Now, we will compute the sums of squares and calculate de R squared and adjusted R squared.
 
 ```{r}
-ggplot(data=insurance,aes(y=y3,x=age,color=smoker)) + geom_point()
-names(insurance)
-modelo_1=lm(data=insurance,y3~age+smoker+age:smoker)
-summary(modelo_1)
-autoplot(modelo_1)
+SST=sum((bodyfat$hwfat-mean(bodyfat$hwfat))^2)
+SSM=sum((predichos-mean(bodyfat$hwfat))^2)
+SSE=sum((predichos-bodyfat$hwfat)^2)
 
-insurance$r1=modelo_1$residuals
-insurance$fit1=modelo_1$fitted.values
+r2=1-SSE/SST
 
-insurance$children %<>% as.factor()
-insurance$bmi1=insurance$bmi %>% cut(c(0,18.5,25,30,100))
-ggplot(data=insurance,aes(x=fit1,y=r1,color=region)) + geom_point()
+r2adj=1-(1-r2)*(78-1)/(78-6-1)
 
+cat("R2=",r2,"R2adj=",r2adj)
 ```
 
-```{r}
-modelo_2=lm(data=insurance,y3~age+smoker+age:smoker+bmi+bmi:smoker+children)
-summary(modelo_2)
-autoplot(modelo_2)
-```
+From the slides, we get that in the original model $R^2=0.8918$ and $R^2_{adj}=0.8827$. As we can see, these values are slightly higher than the ridge model.
+
+#8 The dataset insurance.csv contains data of insurance premiums paid by people in USA depending on their personal characteristics.
+
+## a) Find the model that gives the best prediction
+
+First of all, we are going to split our data into two sets, training and testing, with a 70% of the data in training. Within this division, we can build the model on the training data set, then apply the to the test data to predict the outcome of new unseen observations.
+
+Finally we can quantify the prediction error between the observed and the predicted outcome values.
 
 ```{r}
-insurance$r1=modelo_2$residuals
-insurance$fit1=modelo_2$fitted.values
-
-ggplot(data=insurance,aes(x=age,y=region,color=groups)) + geom_boxplot()
-
-ggplot(data=insurance,aes(x=sex,fill=children))+ geom_bar() + facet_grid(vars(groups))
-
-insurance$groups=(insurance$fit1>18.3) | (insurance$r1>0.48)
-
-
-```
-```{r}
-modelo_3=lm(data=insurance,y3~age+I(age^2)+smoker+age:smoker+bmi+bmi:smoker+children+smoker:children)
-summary(modelo_3)
-plot(modelo_3)
-
-insurance$r1=modelo_3$residuals
-insurance$fit1=modelo_3$fitted.values
-
-ggplot(data=insurance,aes(x=fit1,y=r1,color= charges)) + geom_point()
-
-insurance$groups2=(insurance$r1>0.1)
-
-pairs.panels(insurance %>% dplyr::select(r1,bmi), 
-             method = "pearson", # correlation method
-             hist.col = "#00AFBB",
-             density = TRUE,  # show density plots
-             ellipses = TRUE # show correlation ellipses
-             )
-
-ggplot(data=insurance,aes(x=age,y=,color= groups,shape=smoker)) + geom_point() #scale_color_continuous(type="viridis")
-
-insurance$logbmi=log(insurance$bmi+1)
-
-
-```
-Volvemos a empezar!!!!!!!
-
-```{r}
-#dividimos data set en validacion y trainig
 library(caret)
 library(stringr)
-
 insurance=readr::read_csv("Datasets_Chapters_1_to_4/insurance.csv")
-insurance$children %<>% as.factor()
-
-insurance$highrisk=insurance$bmi>=30 & insurance$smoker=="yes" 
-insurance$north=str_detect(insurance$region,"north")
-
-
 index=createDataPartition(insurance$charges,p=0.7)
 trainset=insurance[index$Resample1,]
 testset=insurance[-index$Resample1,]
+```
 
-index2=createDataPartition(testset$charges,p=0.66)
-crossvalidation=testset[index2$Resample1,]
-finalset=testset[-index2$Resample1,]
+Once we have the data partition on which we are going to build our model, we have to normalize the data so, in this case, w our response variable "charges" using boxcox, so that the response is normalized.
 
-
-
-
-modelo_0_logico=lm(data=trainset,charges~age+bmi:smoker+sex+sex:children)
-summary(modelo_0_logico)
-plot(modelo_0_logico)
-
-trainset$residuales=modelo_0_logico$residuals
-trainset$fit1=modelo_0_logico$fitted.values
-
-#Esta grafica incluirla
-ggplot(trainset,aes(x=residuales,y=fit1,color=smoker)) + geom_point()
-#ggplot(trainset,aes(x=residuales,y=fit1,color=highrisk)) + geom_point()
-ggplot(trainset,aes(x=residuales,y=fit1,color=bmi)) + geom_point() + scale_color_continuous(type = "viridis")
-
-
-##Ajustamos charges
-t=MASS::boxcox(data=testset,charges~smoker:age+region+smoker+bmi)
+```{r}
+t=MASS::boxcox(data=testset,charges~1)
 indicemax=which.max(t$y)
 lambda=t$x[indicemax]
 
 trainset$y2=forecast::BoxCox(trainset$charges,lambda)
 crossvalidation$y2=forecast::BoxCox(crossvalidation$charges,lambda)
 finalset$y2=forecast::BoxCox(finalset$charges,lambda)
+```
+
+Now we will train the first model, we will use the predictors that we might have a strong relationship with the response variable. Therefore, we are going to use the predictors: age, sex and two interactions, bmi with smokers as we think that bmi is only a risk factor when a person smokes and sex with number of children as we think that the market behaves differently with men and women regard to premium of each child.
+
+```{r}
+insurance$children %<>% as.factor()
+modelo_0_logico=lm(data=trainset,charges~age+bmi:smoker+sex+sex:children)
+summary(modelo_0_logico)
+autoplot(modelo_0_logico)
+```
+
+From this model we notice that in the residuals vs fitted there are four "zones". Coloring based on bmi and smoker we the following information, on which we are going to base the rest of the model. 
+
+```{r}
+trainset$residuales=modelo_0_logico$residuals
+trainset$fit1=modelo_0_logico$fitted.values
+
+ggplot(trainset,aes(x=residuales,y=fit1,color=smoker)) + geom_point()
+
+ggplot(trainset,aes(x=residuales,y=fit1,color=bmi)) + geom_point() + scale_color_continuous(type = "viridis")
+```
+
+
+```{r}
+insurance$highrisk=insurance$bmi>=30 & insurance$smoker=="yes" 
+insurance$north=str_detect(insurance$region,"north")
+insurance$highbmi=insurance$bmi>30
+
+
+#ggplot(trainset,aes(x=residuales,y=fit1,color=highrisk)) + geom_point()
+
+
+
+##Ajustamos charges
+
 
 #Best model so far ####
-modelo_1_ajustar_y=lm(data=trainset,y2~smoker:bmi+region+smoker+children+age)
+modelo_1_ajustar_y=lm(data=trainset,y2~smoker:highbmi+region+smoker+children+age:region)
 summary(modelo_1_ajustar_y)
 autoplot(modelo_1_ajustar_y)[[1]] + geom_point(aes(color=trainset$children))
 plot(modelo_1_ajustar_y)
@@ -445,23 +391,42 @@ qplot(y=trainset$age,x=trainset$charges,color=trainset$bmi)  + scale_color_conti
 
 trainset$children1=trainset$bmi %>% cut(c(0,18.5,25,30,100))
 
-qplot(y=trainset$age,x=trainset$charges,color=trainset$children)
+qplot(y=trainset$age,x=trainset$charges,color=(trainset$children%in%c("1","2","3","4")))
 
-qplot(y=trainset$age,x=trainset$charges,color=trainset$bmi1)
+qplot(y=trainset$age,x=trainset$charges,color=trainset$highbmi)
 
+##Esta grafica muestra que hay dos poblaciones
 ggplot(data=trainset,aes(x=y2,color=smoker))+geom_density()
+```
 
-trainset[349,]
-busqueda=trainset %>% filter( smoker=="yes")
 
-modelo_bruto=lm(data=trainset,y2~smoker+age+sex+children+region+bmi)
+Estudiamos multicolinealidad
+```{r}
+library(glmnet)
+#Calculate the regression matrix without the intercept
+X=model.matrix(y2~smoker:highbmi+region+smoker+children+age:region-1,data=trainset)
+#the function `glmnet` will chose a range of values of the ridge parameter
+#We need to specify alpha=0
+fit.ridge=glmnet(X,trainset$y2,alpha=0)
+#Plot estimated coefficients for different values of the ridge parameter plot(fit.ridge,xvar="lambda",label=TRUE)
+#legend(6,-0.2, c("age", "smoker", "children","region","highbmi"),lty=1:6,col=1:6,cex=0.8)
 
-MASS::stepAIC(modelo_bruto,scope = list(upper=~smoker*age*sex*children*region*bmi,lower=~1),direction = "both")
+cv.out = cv.glmnet(X, trainset$y2, alpha = 0) #alpha=0 means Ridge Regression plot(cv.out)
 
-autoplot(lm(formula = y2 ~ smoker + age + sex + children + region + bmi + 
-    smoker:age + smoker:bmi + smoker:children + age:children + 
-    region:bmi + age:region + smoker:sex + age:sex, data = trainset))
+opt_lambda <- cv.out$lambda.min 
+#Fitting the model for that value of the ridge parameter
+modelo_final=predict(fit.ridge, type = "coefficients", s = opt_lambda)
+predicted=predict(fit.ridge,newx = X, s = opt_lambda)
+
+residuos=predicted-trainset$y2
+qqnorm(residuos)
+
+qplot(residuos,trainset$y2)
+
+summary(modelo_final)
 
 ```
 
-Ojo! Las poblaciones de fumadores y no fumadores son muy diferentes! Hacer dos modelos para cada 1
+
+
+
