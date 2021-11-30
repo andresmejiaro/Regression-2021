@@ -3,7 +3,7 @@ title: "Multiple Regression"
 author: "Ignacio Almodovar & Andres Mejia"
 date: "11/23/2021"
 output:
-  pdf_document: default
+  #pdf_document: default
   html_document: default
 ---
 
@@ -105,6 +105,8 @@ sum(modall$fitted.values*modall$residuals)
 $$\hat{\beta_0}=\overline Y - \hat{\beta_1}\overline X$$
 $$\hat{\beta_1}=\frac{S_{xy}}{S^2_x}$$
 
+Using R we can easily compute all those values.
+
 ```{r}
 indice=read.table(file="Datasets_Chapters_1_to_4/index.txt", header = TRUE)
 hatx=mean(indice$PovPct)
@@ -117,29 +119,44 @@ cat("b0=",b0,"b1=",b1)
 ```
 
 
-#4  Given the response variable y and the covariates x2 and x3 in
-the dataset Transform V2.txt dataset , check if is necessary to transform any variable and the residual graphs to show that the transformed model is correct.
+#4  Given the response variable y and the covariates x2 and x3 in the dataset Transform V2.txt dataset , check if is necessary to transform any variable and the residual graphs to show that the transformed model is correct.
 
-```{r}
-
+```{r,echo=false}
 TransformV2=readr::read_table("Transform_V2.txt")
-
 library(psych)
 library(ggfortify)
+```
 
+First of all we plot a panel where we can see and compare the different distributions that our predictors follow, as well as the correlations between them. 
+
+```{r}
 pairs.panels(TransformV2, 
              method = "pearson", # correlation method
              hist.col = "#00AFBB",
              density = TRUE,  # show density plots
              ellipses = TRUE # show correlation ellipses
              )
+```
 
+We can see that the response "y" is very correlated to both "x2" and "x3". Therefore, the response could be expressed by just one of the values. Nevertheless we are first going to fit a model using both predictors and see how it behavies.
 
-autoplot(lm(data=TransformV2,y~x2))
+```{r}
+autoplot(lm(data=TransformV2,y~x2+x3))
+```
 
+In the first plot we can see that the variance between the Residuals and the Fitted values is not constant at all
 
+In order to fix that, we can apply a transformation to our variables. First of all we are going to try to transform both of them using the square. 
+
+```{r}
 autoplot(lm(data=TransformV2,y~x2+x2^2+x3+x3^2))
+```
 
+As we have not obtained the results that we wanted we are going to try a different transformation.
+
+As we saw before, in the first panel of plots we saw that the response Y was very correlated to both "x2" and "x3". Therefore, we are going to try a new model using just the square root transformation of just one of the variables.
+
+```{r}
 m4=lm(data=TransformV2,y~x3+I(x3^(1/2)))
 summary(m4)
 autoplot(m4)
@@ -160,18 +177,20 @@ autoplot(m4)
 
 ```
 
-Bullet points
+Within this last transformation we can see that we have achieve the linear regression assumptions for a model, and we can say that it is good enough to be used. The variance is constant in all the trace of the plot, and it fits well the qnorm line. 
 
-1. Observamos que en las graficas de scale location y fitted tenemos una linea aproximadamente rectas con puntos distribuidos de forma homogenea tanto en la parte superior como inferior de la linea.
+<!-- Bullet points -->
 
-2. Observamos que los residuales parecen distribuirse de manera normal viendo la gráfica qq.
+<!-- 1. Observamos que en las graficas de scale location y fitted tenemos una linea aproximadamente rectas con puntos distribuidos de forma homogenea tanto en la parte superior como inferior de la linea. -->
 
-3. Ningun punto tiene una distacia de cook pronblematica, es decir, mayor a 0.5.
+<!-- 2. Observamos que los residuales parecen distribuirse de manera normal viendo la gráfica qq. -->
+
+<!-- 3. Ningun punto tiene una distacia de cook pronblematica, es decir, mayor a 0.5. -->
 
 
 # 5
 
-Antes
+Again, for this exercise we are also going to plot a first panel to show how our data behaves.
 
 ```{r}
 Transform2_V2=readr::read_table("Transform2_V2.txt")
@@ -183,38 +202,75 @@ pairs.panels(Transform2_V2,
              ellipses = TRUE # show correlation ellipses
              )
 
-modelo0=lm(data=Transform2_V2,y2~x2)
+modelo0=lm(data=Transform2_V2,y2~x1+x2)
 autoplot(modelo0)
 ```
+Again we can see that the model used does not fit the normality assumptions, so we are again going to transform the data. However, in this case, instead of transforming the predictors it is better to transform the response variable using the X method.
 
-
-Transformacion
 
 ```{r}
 MASS::boxcox(data=Transform2_V2,y2~x1+x2)
-
-#Transform2_V2 %<>% mutate(y2=log(y2+1))
 Transform2_V2 %<>% mutate(y2=(y2^-1-1)*-1)
-```
-Dspues
 
-```{r}
 pairs.panels(Transform2_V2, 
              method = "pearson", # correlation method
              hist.col = "#00AFBB",
              density = TRUE,  # show density plots
              ellipses = TRUE # show correlation ellipses
              )
+```
+Once we have our response normalized, we can compute our new model using again just one of the predictors, as both of them are very correlated between them and with the response variable.
 
-
+```{r}
 m2=lm(data=Transform2_V2,y2~x1)
 summary(m2)
 autoplot(m2)
-
-
 ```
 
-#6 
+#6
+
+We can write the bias of the ridge estimator as:
+
+$$\hat\beta_\lambda=(X^tX+\lambda I)^{-1}X^{t}Y$$
+As we know that $Y=(X\beta+\epsilon)$, then:
+
+$$\hat\beta_\lambda=(X^tX+\lambda I)^{-1}X^{t}(X\beta+\epsilon)=(X^tX+\lambda I)^{-1}X^{t}X\beta + (X^tX+\lambda I)^{-1}X^t\epsilon$$
+
+Therefore, the expected value of $\hat\beta_\lambda$:
+
+$$E[\hat\beta_\lambda]=(X^tX+\lambda I)^{-1}X^{t}X\beta + (X^tX+\lambda I)^{-1}X^tE[\epsilon]\\=(X^tX+\lambda I)^{-1}X^{t}X\beta*0=\\ =(X^tX+\lambda I)^{-1}X^{t}X\beta$$
+With this result we can say that the ridge estimator is unbiased if and only if $(X^tX+\lambda I)^{-1}X^{t}X=I$. This is only possible if $\lambda=0$ and that is when the ridge estimator coincides with the OLS estimator. Therefore, the bias of the estimator is:
+
+$$E[\beta_{\lambda}]-\beta=  (X^tX+\lambda I)^{-1}X^{t}X\beta = (X^tX+\lambda I)^{-1}X^{t}X\beta-(X^tX)^{-1}X^tX\beta=\\=[(X^tX+\lambda I)^{-1}-(X^tX)^{-1}]X^tX\beta$$
+
+To show that $Var[\hat\beta_{OLS}]\geq Var[\hat\beta_{ridge}]$:
+
+We know that $Var[\hat\beta]=\sigma^2(X^tX)^{-1}$. Then,
+
+$$
+Var[\hat\beta_\lambda]=\sigma^2(X^tX+\lambda I)^{-1}X^tX(X^tX+\lambda I)^{-1}=\\=\sigma^2(X^tX+\lambda I)^{-1}X^tX(X^tX)^{-1}X^tX(X^tX+\lambda I)^{-1}
+$$
+Defining M as $M=X^tX(X^tX+\lambda I)^{-1}$, the difference of variances is:
+
+$$
+Var[\hat\beta_{OLS}] - Var[\hat\beta_{ridge}]  =  \sigma^2(X^tX)^{-1} - \sigma^2M^t(X^tX)^{-1}M=\\ =\sigma^2[M^t(M^t)^{-1}(X^tX)^{-1}M^{-1}M - M^t(X^tX)^{-1}M]=\\
+=\sigma^2M^t[(M^t)^{-1}(X^tX)^{-1}M^{-1}-(X^tX)^{-1}]M=\\
+=\sigma^2M^t[(X^tX)^{-1}(X^tX+\lambda)(X^tX)^{-1}(X^tX+\lambda)(X^tX)^{-1}-(X^tX)^{-1} ]M=\\
+=\sigma^2M^t[(I+\lambda(X^tX)^{-1})(X^tX)^{-1}(I+\lambda(X^tX)^{-1})-(X^tX)^{-1}]M=\\
+=\sigma^2M^t[((X^tX)^{-1}+\lambda(X^tX)^{-2})(I+\lambda(X^tX)^{-1})-(X^tX)^{-1}]M=\\
+=\sigma^2 M^t[(X^tX)^{-1}+\lambda (X^tX)^{-2}+\lambda(X^tX)^{-2}+\lambda^2(X^tX)^{-3}-(X^tX)^{-1}]M=\\
+=\sigma^2 M^t[2\lambda(X^tX)^{-2}+\lambda^2(X^tX)^{-3}]M=\\
+=\sigma^2(X^tX+\lambda I)^{-1}X^tX[2\lambda(X^tX)^{-2}+\lambda^2(X^tX)^{-3}]X^tX(X^tX+\lambda I)^{-1}=\\=\sigma^2(X^tX+\lambda I)^{-1}[2\lambda I+\lambda^2(X^tX)^{-1}](X^tX+\lambda I)^{-1}
+$$
+If $\lambda>0$, the latter matrix is positive definite because for any $v\neq 0$, we have:
+
+$$z=(X^tX+\lambda I)^{-1}v\neq0$$
+Therefore, we finally have:
+
+$$
+v^T(Var[\hat\beta_{OLS}] - Var[\hat\beta_{ridge}])v=\sigma^2z^t(2\lambda I+\lambda^2(X^tX)^{-1})z=\sigma^2\lambda z^tz+\sigma^2\lambda^2x^t(X^tX)^{-1}z>0
+$$
+Because $X^tX$ and its inverse are positive definite.
 
 #7
 
@@ -222,7 +278,7 @@ autoplot(m2)
 
 
 ```{r}
-insurance=read_csv("Datasets_Chapters_1_to_4/insurance.csv")
+insurance=readr::read_csv("Datasets_Chapters_1_to_4/insurance.csv")
 head(insurance)
 
 pairs.panels(insurance %>% dplyr::select(y3,age2,charges), 
@@ -330,7 +386,7 @@ Volvemos a empezar!!!!!!!
 library(caret)
 library(stringr)
 
-insurance=read_csv("Datasets_Chapters_1_to_4/insurance.csv")
+insurance=readr::read_csv("Datasets_Chapters_1_to_4/insurance.csv")
 insurance$children %<>% as.factor()
 
 insurance$highrisk=insurance$bmi>=30 & insurance$smoker=="yes" 
@@ -350,26 +406,48 @@ finalset=testset[-index2$Resample1,]
 
 modelo_0_logico=lm(data=trainset,charges~age+bmi:smoker+sex+sex:children)
 summary(modelo_0_logico)
-autoplot(modelo_0_logico)
+plot(modelo_0_logico)
+
+trainset$residuales=modelo_0_logico$residuals
+trainset$fit1=modelo_0_logico$fitted.values
+
+#Esta grafica incluirla
+ggplot(trainset,aes(x=residuales,y=fit1,color=smoker)) + geom_point()
+#ggplot(trainset,aes(x=residuales,y=fit1,color=highrisk)) + geom_point()
+ggplot(trainset,aes(x=residuales,y=fit1,color=bmi)) + geom_point() + scale_color_continuous(type = "viridis")
+
 
 ##Ajustamos charges
 t=MASS::boxcox(data=testset,charges~smoker:age+region+smoker+bmi)
 indicemax=which.max(t$y)
 lambda=t$x[indicemax]
 
-trainset$y2=BoxCox(trainset$charges,lambda)
-crossvalidation$y2=BoxCox(crossvalidation$charges,lambda)
-finalset$y2=BoxCox(finalset$charges,lambda)
+trainset$y2=forecast::BoxCox(trainset$charges,lambda)
+crossvalidation$y2=forecast::BoxCox(crossvalidation$charges,lambda)
+finalset$y2=forecast::BoxCox(finalset$charges,lambda)
 
 #Best model so far ####
-modelo_1_ajustar_y=lm(data=trainset,y2~smoker:age+highrisk+region+smoker)
+modelo_1_ajustar_y=lm(data=trainset,y2~smoker:bmi+region+smoker+children+age)
 summary(modelo_1_ajustar_y)
 autoplot(modelo_1_ajustar_y)[[1]] + geom_point(aes(color=trainset$children))
 plot(modelo_1_ajustar_y)
 #######################
 
-trainset$residual=modelo_1_ajustar_y$residuals
-qplot(y=trainset$bmi,x=trainset$age,color=trainset$residual>1)
+#ggplot(data=trainset,aes(sample=y2))+ geom_qq_line() + geom_qq()
+#qplot(trainset$age,geom="density")
+#trainset$residual=modelo_1_ajustar_y$residuals
+
+qplot(x=trainset$age,y=trainset$children,geom="boxplot")
+qplot(modelo_1_ajustar_y$residuals,geom="density")
+
+
+qplot(y=trainset$age,x=trainset$charges,color=trainset$bmi)  + scale_color_continuous(type = "viridis")
+
+trainset$children1=trainset$bmi %>% cut(c(0,18.5,25,30,100))
+
+qplot(y=trainset$age,x=trainset$charges,color=trainset$children)
+
+qplot(y=trainset$age,x=trainset$charges,color=trainset$bmi1)
 
 ggplot(data=trainset,aes(x=y2,color=smoker))+geom_density()
 
