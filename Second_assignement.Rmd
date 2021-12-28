@@ -1,0 +1,12 @@
+---
+title: "Second_assignement"
+author: "Ignacio Almodóvar & Andrés Mejía"
+date: "12/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
