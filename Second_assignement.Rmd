@@ -5,8 +5,94 @@ date: "12/28/2021"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE,warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+```
+
+
+
+1. (0.75 points) Fit a logistic regression model to predict the probability self-perceived health using the predictors sex and weight without including the interaction between them.
+
+- Interpret the coefficients in terms of odds ratios
+
+
+```{r}
+data_health=read.table(file = "Datasets_Chapter5/health.txt",header = TRUE)
+data_health$sex=factor(data_health$sex,labels = c(0,1))
+
+model1=glm(data = data_health, g02~sex+weight,family=binomial)
+summary(model1)
+```
+
+
+```{r}
+exp(coef(model1))
+```
+
+As the reference is male (0), we can conclude that females are 0.43 times less likely to have a self provided good health, whereas for an increment of 1 unit in the weight, the odds of having good health will be 0,97 times smaller.
+
+
+- Plot the predicted probabilities for males and females
+
+```{r}
+fittedmweighsex=predict(model1,type = "response")
+
+plot(data_health$weight,fittedmweighsex,type="n")
+
+weigh1=data_health$weight[data_health$sex==0] #weigh for males
+fitted=fittedmweighsex[data_health$sex==0]
+
+o=order(weigh1)
+lines(weigh1[o],fitted[o],col=2,t="l")
+
+weigh2=data_health$weight[data_health$sex==1] #weigh for females
+fitted2=fittedmweighsex[data_health$sex==1]
+
+o2=order(weigh2)
+lines(weigh2[o2],fitted2[o2],col=4,t="l")
+```
+
+- Given that a person has weight = 95, what is the relative risk and odds ratio of self-perceived good health of a female compared with a male?
+
+```{r}
+p1=predict(model1,newdata=data.frame(weight=95,sex="0"),type="response")
+p2=predict(model1,newdata=data.frame(weight=95,sex="1"),type="response") #female
+
+p2/p1 #relative risk
+
+(p2/(1-p2))/(p1/(1-p1)) #Odds ratio
+```
+
+2. (0.5 points) Repeat the previous exercise including the interaction be- tween weight and sex in the model, compare and comment the results. Use the LRT to test if the terms in the model are significant.
+
+```{r}
+model2=glm(data = data_health, g02~sex+weight+sex:weight,family=binomial)
+coef(model2)
+
+weight=95
+OR=exp(1.2368-0.0289*weight)
+
+```
+
+3. (0.75 points) Calculate and interpret the confidence intervals for the coefficients in the model fitted the previous exercise and calculate the estimated expected probability of males of 80 and 165 kg and give a confidence interval for each of those predictions
+
+```{r}
+confint(model2)
+```
+
+```{r}
+fitt=predict(model2,se.fit = TRUE)
+
+p80=predict(model2,newdata=data.frame(weight=80,sex="0"),se.fit = TRUE)
+p165=predict(model2,newdata=data.frame(weight=165,sex="0"),se.fit = TRUE)
+
+L.inf80=with(p80,exp(fit-1.96*se.fit)/(1+exp(fit-1.96*se.fit)))
+L.sup80=with(p80,exp(fit+1.96*se.fit)/(1+exp(fit+1.96*se.fit)))
+
+with(fitt,plot(data_health$weight[data_health$sex==0],col=2,pch=19,cex=0.5))
+points(data_health$weight[data_health$sex==0],L.inf80[data_health$sex==0],col=2,pch=19,cex=0.5)
 ```
 
 
