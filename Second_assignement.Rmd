@@ -13,10 +13,9 @@ library(ggplot2)
 
 
 
-1. (0.75 points) Fit a logistic regression model to predict the probability self-perceived health using the predictors sex and weight without including the interaction between them.
+### 1. (0.75 points) Fit a logistic regression model to predict the probability self-perceived health using the predictors sex and weight without including the interaction between them.
 
 - Interpret the coefficients in terms of odds ratios
-
 
 ```{r}
 data_health=read.table(file = "Datasets_Chapter5/health.txt",header = TRUE)
@@ -31,7 +30,7 @@ summary(model1)
 exp(coef(model1))
 ```
 
-As the reference is male (0), we can conclude that females are 0.43 times less likely to have a self provided good health, whereas for an increment of 1 unit in the weight, the odds of having good health will be 0,97 times smaller.
+As the reference is male (0), we can conclude that females are 0.43 times less likely to have a self provided good health, whereas for an increment of 1 unit in the weight, the odds of having good health will be 0,97 times smaller for both men and women.
 
 
 - Plot the predicted probabilities for males and females
@@ -65,21 +64,57 @@ p2/p1 #relative risk
 (p2/(1-p2))/(p1/(1-p1)) #Odds ratio
 ```
 
-2. (0.5 points) Repeat the previous exercise including the interaction be- tween weight and sex in the model, compare and comment the results. Use the LRT to test if the terms in the model are significant.
+### 2. (0.5 points) Repeat the previous exercise including the interaction between weight and sex in the model, compare and comment the results. Use the LRT to test if the terms in the model are significant.
 
 ```{r}
 model2=glm(data = data_health, g02~sex+weight+sex:weight,family=binomial)
-coef(model2)
 
-weight=95
-OR=exp(1.2368-0.0289*weight)
-
+summary(model2)
+exp(coef(model2))
 ```
 
-3. (0.75 points) Calculate and interpret the confidence intervals for the coefficients in the model fitted the previous exercise and calculate the estimated expected probability of males of 80 and 165 kg and give a confidence interval for each of those predictions
+When the interaction is included, we can say that for an increment of 1 unit in the weight, the odds of having good health will be (0,97+0.988) times smaller for women, whereas for men it will only be 0.988 times smaller.
+
 
 ```{r}
-confint(model2)
+fittedmweighsexinteraction=predict(model2,type = "response")
+
+plot(data_health$weight,fittedmweighsexinteraction,type="n")
+
+weigh3=data_health$weight[data_health$sex==0] #weigh for males
+fitted3=fittedmweighsexinteraction[data_health$sex==0]
+
+o3=order(weigh3)
+lines(weigh3[o3],fitted3[o3],col=2,t="l")
+
+weigh4=data_health$weight[data_health$sex==1] #weigh for females
+fitted4=fittedmweighsexinteraction[data_health$sex==1]
+
+o4=order(weigh4)
+lines(weigh4[o4],fitted4[o4],col=4,t="l")
+```
+
+```{r}
+p3=predict(model2,newdata=data.frame(weight=95,sex="0"),type="response")
+p4=predict(model2,newdata=data.frame(weight=95,sex="1"),type="response") #female
+
+p4/p3 #relative risk
+
+(p4/(1-p4))/(p3/(1-p3)) #Odds ratio
+```
+
+Now to test if the terms in the model are significant, we can use the anova function.
+
+```{r}
+anova(model1,model2,test = "Chisq")
+```
+
+As we obtain a pvalue very close to 0 we can reject the null hypothesis and conclude by saying that the model works better with the interaction than without it.
+
+### 3. (0.75 points) Calculate and interpret the confidence intervals for the coefficients in the model fitted the previous exercise and calculate the estimated expected probability of males of 80 and 165 kg and give a confidence interval for each of those predictions
+
+```{r}
+exp(confint(model2))
 ```
 
 ```{r}
@@ -88,11 +123,112 @@ fitt=predict(model2,se.fit = TRUE)
 p80=predict(model2,newdata=data.frame(weight=80,sex="0"),se.fit = TRUE)
 p165=predict(model2,newdata=data.frame(weight=165,sex="0"),se.fit = TRUE)
 
-L.inf80=with(p80,exp(fit-1.96*se.fit)/(1+exp(fit-1.96*se.fit)))
-L.sup80=with(p80,exp(fit+1.96*se.fit)/(1+exp(fit+1.96*se.fit)))
-
-with(fitt,plot(data_health$weight[data_health$sex==0],col=2,pch=19,cex=0.5))
-points(data_health$weight[data_health$sex==0],L.inf80[data_health$sex==0],col=2,pch=19,cex=0.5)
 ```
+
+
+### 4. (1 point) Use all predictors available in the dataset health to find the best subset of predictors (and their possible interactions) using LRT, AIC and BIC. Are the chosen models the same?. If the answer is not, which one would you use as your final model?. Check the predictive accuracy of the final model.
+
+
+```{r}
+
+```
+
+
+### 5. (1 point) In a hospital in New York a sample of size 100 was taken among alcoholics, and another sample among non-alcoholics of size 500. For each patient it was recorded whether he/she suffered from cirrhosis of the liver. A similar investigation was carried out in Philadelphia with samples of 228 alcoholics and 3772 non-alcoholics. Use a logistic regression model to analyze the dependence of disease prevalence on site and patient status.
+
+
+x = 1: Alcoholic
+x = 0: No alcoholic
+y = 1: New York,
+y = 0: Philadelphia
+z = 1: Sick,
+z = 0: No sick
+
+If the patient is from New York (y=1):
+
+$$\frac{P(z=1|x=1)/[1-P(z=1|x=1)]}{P(z=1|x=0)/[1-P(z=1|x=0)]}=\frac{\frac{35}{100}/(1-\frac{35}{100})}{\frac{25}{500}/(1-\frac{25}{500})}=\frac{35/65}{25/475}=10.2307692$$
+
+Being from New York, the patient is more likely to be sick if he is alcoholic than if he is not.
+
+If the patient is from Philadelphia (y=0):
+
+$$\frac{P(z=1|x=1)/[1-P(z=1|x=1)]}{P(z=1|x=0)/[1-P(z=1|x=0)]}=\frac{\frac{45}{228}/(1-\frac{45}{228})}{\frac{105}{3772}/(1-\frac{105}{3772})}=\frac{45/183}{105/3667}=8.58782201$$
+
+Being from Philadelphia, the patient is more likely to be sick if he is alcoholic than if he is not.
+
+
+
+### 6. (1.5 point) Find the best model for the property crime rates used in chapter 6 and interpret the parameters
+
+### 7. (2 points) The dataset ships2 (available in datasets for Chapter 6) concern a type of damage caused by waves to the forward section of cargo-carrying vessels. Develop a model for the rate of incidents per aggregate months of service. Check and correct for overdispersion (if necessary). Given the final model, answer the following questions:
+
+- Which type of ship has the lowest and the highest risk of incidents? 
+- By how much does the incident rate increases after 1974?
+- In which year where built the safest ships?
+
+```{r}
+data_ships=read.table(file = "Datasets_Chapter6/ships2.txt",header = TRUE)
+data_ships$period=factor(data_ships$period)
+data_ships$year=factor(data_ships$year)
+data_ships$type=factor(data_ships$type)
+
+summary(data_ships)
+
+data_ships$rate=(data_ships$incidents/data_ships$service)*1000
+
+library(ggplot2)
+
+```
+
+ - Which type of ship has the lowest and the highest risk of incidents?
+ 
+```{r}
+library(multcomp)
+
+
+model_ships=glm(incidents~type+year+period,offset=log(service),family=poisson,data=data_ships)
+summary(model_ships)
+summary(glht(model_ships,mcp(type="Tukey")))
+
+model_ships2=glm(incidents~type+year+period+period:year,offset=log(service),family=poisson,data=data_ships)
+summary(model_ships2)
+
+anova(model_ships,model_ships2,test = "Chisq") #as the pvalue is higher than 0.05 we can accept the interaction
+
+pchisq(model_ships2$deviance,model_ships$df.residual,lower.tail=FALSE) #We can assume model fits
+
+var(data_ships$incidents)
+mean(data_ships$incidents)
+```
+ As the variance is higer than the mean we can say that there is an overdispersion in our data.
+ 
+```{r}
+model_ships3=glm(incidents~type+year+period+type:year,offset=log(service),family=quasipoisson,data=data_ships)
+summary(model_ship3)
+```
+ 
+ 
+ - By how much does the incident rate increases after 1974?
+ - In which year where built the safest ships?
+ 
+```{r}
+ggplot(data_ships,aes(x=year,y=rate)) + geom_boxplot(aes(col=type))
+```
+ 
+ The year were the ships built were the safest ones was in the 60's, where the rate of incident was very low for both types of ships.
+
+
+
+
+### 8. (2.5 points) The aim of this task is to examine the relationship be- tween the number of physician office visits for a person (ofp) and a set 2
+of explanatory variables for individuals on Medicare. Their data are contained in the file dt.csv.
+The explanatory variables are number of hospital stays (hosp), number of chronic conditions (numchron), gender (gender; male = 1, female = 0), number of years of education (school), private insurance (privins; yes = 1, no = 0), healthexcellent and healthpoor, these two are self- perceived health status indicators that take on a value of yes = 1 or no = 0, and they cannot both be 1 (both equal to 0 indicates ?average? health). Using these data, complete the following:
+• Estimate the Poisson regression model to predict the number of physician office visits and interpret the coefficients
+• Compare the number of zero-visit counts in the data to the number predicted by the model and comment. Can you think of a possible explanation for why there are so many zeroes in the data?
+• Estimate the zero-inflated Poisson regression model to predict the number of physician office visits. Use all of the explanatory vari- ables for the log(μ) part of the model and no explanatory variables in the φ part of the model. Interpret the model fit results
+• Do the previous item again, but now use all of the explanatory variables to estimate φ. Interpret the model fit results and com- pare this model to the previous ZIP model using a LRT
+• Examine how well each model estimates the number of 0 counts
+
+
 
 
