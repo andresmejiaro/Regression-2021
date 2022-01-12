@@ -10,11 +10,14 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(multcomp)
+library(pscl)
+library(magrittr)
+library(caret)
 ```
 
 
 
-### 1. (0.75 points) Fit a logistic regression model to predict the probability self-perceived health using the predictors sex and weight without including the interaction between them.
+### 1. Fit a logistic regression model to predict the probability self-perceived health using the predictors sex and weight without including the interaction between them.
 
 - Interpret the coefficients in terms of odds ratios
 
@@ -59,13 +62,19 @@ lines(weigh2[o2],fitted2[o2],col=4,t="l")
 ```{r}
 p1=predict(model1,newdata=data.frame(weight=95,sex="0"),type="response")
 p2=predict(model1,newdata=data.frame(weight=95,sex="1"),type="response") #female
-
-p2/p1 #relative risk
-
-(p2/(1-p2))/(p1/(1-p1)) #Odds ratio
 ```
 
-### 2. (0.5 points) Repeat the previous exercise including the interaction between weight and sex in the model, compare and comment the results. Use the LRT to test if the terms in the model are significant.
+Now let's calculate the relative risk.
+```{r}
+p2/p1
+```
+
+And the odds ratio.
+```{r}
+(p2/(1-p2))/(p1/(1-p1))
+```
+
+### 2. Repeat the previous exercise including the interaction between weight and sex in the model, compare and comment the results. Use the LRT to test if the terms in the model are significant.
 
 ```{r}
 model2=glm(data = data_health, g02~sex+weight+sex:weight,family=binomial)
@@ -74,7 +83,7 @@ summary(model2)
 exp(coef(model2))
 ```
 
-When the interaction is included, we can say that for an increment of 1 unit in the weight, the odds of having good health will be (0,97+0.988) times smaller for women, whereas for men it will only be 0.988 times smaller.
+When the interaction is included, we cannot directly use the exponential to interpret the results. Therefore, we could say that for an increment of 1 unit in the weight, the odds of having good health will be exp(1.23-0.028*weight) times smaller for women.
 
 
 ```{r}
@@ -98,13 +107,19 @@ lines(weigh4[o4],fitted4[o4],col=4,t="l")
 ```{r}
 p3=predict(model2,newdata=data.frame(weight=95,sex="0"),type="response")
 p4=predict(model2,newdata=data.frame(weight=95,sex="1"),type="response") #female
+```
 
+Now we obtain the relative risk:
+```{r}
 p4/p3 #relative risk
+```
 
+Also the Odds ratio:
+```{r}
 (p4/(1-p4))/(p3/(1-p3)) #Odds ratio
 ```
 
-Now to test if the terms in the model are significant, we can use the anova function.
+Now, in order to obtain the LRT we are going to use the anova function.
 
 ```{r}
 anova(model1,model2,test = "Chisq")
@@ -112,120 +127,165 @@ anova(model1,model2,test = "Chisq")
 
 As we obtain a pvalue very close to 0 we can reject the null hypothesis and conclude by saying that the model works better with the interaction than without it.
 
-### 3. (0.75 points) Calculate and interpret the confidence intervals for the coefficients in the model fitted the previous exercise and calculate the estimated expected probability of males of 80 and 165 kg and give a confidence interval for each of those predictions
+### 3. Calculate and interpret the confidence intervals for the coefficients in the model fitted the previous exercise and calculate the estimated expected probability of males of 80 and 165 kg and give a confidence interval for each of those predictions
+
+The confidence interval for the model with the interaction between age and weight is:
+
+```{r}
+confint(model2)
+```
+
+From this we can calculate the confidence intervals for the odds ratio.
 
 ```{r}
 exp(confint(model2))
 ```
 
-```{r}
-fitt=predict(model2,se.fit = TRUE)
+This way we transformed the uncertainty from the coefficients into uncertainty of the odds ratio.
 
-p80=predict(model2,newdata=data.frame(weight=80,sex="0"),se.fit = TRUE)
-p165=predict(model2,newdata=data.frame(weight=165,sex="0"),se.fit = TRUE)
+Now let's focus for the confidence intervals for the predictions
+
+```{r}
+fitt=predict(model2,newdata=data.frame(sex=c("0","0"),weight=c(80,165)),se.fit = TRUE)
+
+prob=with(fitt,exp(fit)/(1+(exp(fit))))
+
+prob_confint_upper=with(fitt,exp(fit+1.96*se.fit)/(1+exp(fit+1.96*se.fit)))
+prob_confint_lower=with(fitt,exp(fit-1.96*se.fit)/(1+exp(fit-1.96*se.fit)))
+```
+
+```{r}
+data.frame(Description=c("Male 80kg","Male 165kg"),inferior=prob_confint_lower,prob,superior=prob_confint_upper)
+```
+
+### 4. Use all predictors available in the dataset health to find the best subset of predictors (and their possible interactions) using LRT, AIC and BIC. Are the chosen models the same?. If the answer is not, which one would you use as your final model?. Check the predictive accuracy of the final model.
+
+```{r}
+data_health$g01=NULL
+index=sample(1:nrow(data_health),size=round(nrow(data_health)*0.7))
+train=data_health[index,]
+test=data_health[-index,]
+
+modall <- glm(g02 ~ .^2, family = binomial, train, maxit = 100)
+```
+
+```{r}
+modelo_actual=modall
+
+for(i in 1:10){
+  a=drop1(modelo_actual,test="LRT")
+  aremov=which.min(a$LRT)
+  if(a$`Pr(>Chi)`[aremov]<0.05){
+    break()
+  }
+  print(names(modelo_actual$coefficients)[aremov])
+  modelo_actual=update(modelo_actual,paste0("~.-",names(modelo_actual$coefficients)[aremov]))
+}
 
 ```
 
+We are now going to compute all this methods using the stepAIC function, which allows us to use AIC and BIC. To select one of the methods you have to indicate it in *k* parameter of the function. We are not going to show the whole output given by this functions because it is going to be too long.
 
-### 4. (1 point) Use all predictors available in the dataset health to find the best subset of predictors (and their possible interactions) using LRT, AIC and BIC. Are the chosen models the same?. If the answer is not, which one would you use as your final model?. Check the predictive accuracy of the final model.
-
+```{r,results=FALSE}
+model_AIC=stepAIC(modall, k = 2, direction = "both", scope = . ~.^2)
+model_BIC=stepAIC(modall, k = log(nrow(data_health)), direction = "both",scope = . ~ .^2)
+```
 
 ```{r}
+ltr=as.numeric(predict(modelo_actual,newdata = test,type = "response"))
+#ltr=factor(ltr, levels = c(0,1))
+test_response=factor(test$g02, levels = c(0,1))
+aic=as.numeric(predict(model_AIC,newdata = test,type = "response"))
+#aic=factor(aic, levels = c(0,1))
+bic=as.numeric(predict(model_BIC,newdata = test,type = "response"))
+#bic=factor(bic, levels = c(0,1))
+
+# confusionMatrix(test_response, ltr)
+# confusionMatrix(test_response,aic)
+# confusionMatrix(test_response,bic)
+
+auca=auc(response=test$g02,predictor=ltr)
+aucb=auc(response=test$g02,predictor=aic)
+aucc=auc(response=test$g02,predictor=bic)
+auca
+aucb
+aucc
 
 ```
 
-
-### 5. (1 point) In a hospital in New York a sample of size 100 was taken among alcoholics, and another sample among non-alcoholics of size 500. For each patient it was recorded whether he/she suffered from cirrhosis of the liver. A similar investigation was carried out in Philadelphia with samples of 228 alcoholics and 3772 non-alcoholics. Use a logistic regression model to analyze the dependence of disease prevalence on site and patient status.
-
-
-x = 1: Alcoholic
-x = 0: No alcoholic
-y = 1: New York,
-y = 0: Philadelphia
-z = 1: Sick,
-z = 0: No sick
-
-If the patient is from New York (y=1):
-
-$$\frac{P(z=1|x=1)/[1-P(z=1|x=1)]}{P(z=1|x=0)/[1-P(z=1|x=0)]}=\frac{\frac{35}{100}/(1-\frac{35}{100})}{\frac{25}{500}/(1-\frac{25}{500})}=\frac{35/65}{25/475}=10.2307692$$
-
-Being from New York, the patient is more likely to be sick if he is alcoholic than if he is not.
-
-If the patient is from Philadelphia (y=0):
-
-$$\frac{P(z=1|x=1)/[1-P(z=1|x=1)]}{P(z=1|x=0)/[1-P(z=1|x=0)]}=\frac{\frac{45}{228}/(1-\frac{45}{228})}{\frac{105}{3772}/(1-\frac{105}{3772})}=\frac{45/183}{105/3667}=8.58782201$$
-
-Being from Philadelphia, the patient is more likely to be sick if he is alcoholic than if he is not.
+For this exercise the models built by LTR and BIC gave the same result. The predictions of all the models are similar, at a cutoff of 0.5 gave exactly the same result. To further compare those models we used AIC on data not seen by the model before. The model generated by LTR and BIC (same model) is slightly better.
 
 
-
-### 6. (1.5 point) Find the best model for the property crime rates used in chapter 6 and interpret the parameters
-
+### 5. In a hospital in New York a sample of size 100 was taken among alcoholics, and another sample among non-alcoholics of size 500. For each patient it was recorded whether he/she suffered from cirrhosis of the liver. A similar investigation was carried out in Philadelphia with samples of 228 alcoholics and 3772 non-alcoholics. Use a logistic regression model to analyze the dependence of disease prevalence on site and patient status.
 
 ```{r}
-crimes <- read.table("Campus_Crime.txt",header=TRUE)
-View(crimes)
+c1=data.frame(city=c("New York","Philly"))
+c2=data.frame(alcohol=c("Alcoholic","Non Alcoholic"))
+c3=data.frame(sick=c(1,0))
+
+
+tot=full_join(c1,c2,by=character())
+tot=full_join(tot,c3,by=character())
+
+tot$weight=c(35,65,25,475,45,183,105,3667)
+
+
+model_sick=glm(data=tot,formula=sick~city+alcohol,weights = weight,family="binomial")
+
+
+tot$prob=1/(1+exp(-predict(model_sick)))
+tot$odds=exp(predict(model_sick))
+
+
+tot %>% dplyr::select(city,alcohol,prob,odds) %>% distinct()
 ```
 
-#First model 
+### 6. Find the best model for the property crime rates used in chapter 6 and interpret the parameters
 
-We are interested primarily in differences in violent crime between institutional types controlling for difference in regions, so we fit a model with both Region and Type:
+```{r}
+crimes <- read.table("Datasets_Chapter6/Campus_Crime.txt",header=TRUE)
+```
+
+We are going to build the models seen in class:
 
 ```{r}
 modeltr = glm(Violent~Type+Region,family=poisson,offset=log(Enrollment),
               data=crimes)
-summary(modeltr)
-```
-
-#Second model 
-
-
-```{r}
 modeli = glm(Violent~Type+Region+Type:Region,family=poisson, offset=log(Enrollment),
              data=crimes)
-summary(modeli)
+modeliq = glm(Violent~Type+Region+Type:Region,family=quasipoisson,
+              offset=log(Enrollment),data=crimes)
+modelinb = glm.nb(Violent~Type+Region+Type:Region,
+                  weights=offset(log(Enrollment)),link=log,data=crimes)
 ```
 
-
-# To check which of these two models is the most optimal, we are going to use the anova(). 
-
+First of all we are going to compare the first two models as they are made under the same assumptions. Therefore, we are going to see if the interaction is important or not. In order to make this comparaisson we are going to use the anova function.
 
 ```{r}
 anova(modeltr,modeli,test = "Chisq")
 ```
 
-# In this anova, we can see that the nule hypothesis assumes no interaction between Type and Region, while the alternative hypothesis 
-# assumes that there is interaction between them. The anova model has returned a p value of 4.459e-16, which is obviously pretty small
-# and it allows us to reject the nule hypothesis. Therefore, the interaction between Type and Region is indeed quite important for our model.
-# Therefore, it is the most optimal. 
+From this anova function we can see that as the p-value given is very small, we can reject the NULL hypothesis, which means that we can consider the interaction as a significant factor in the model.
 
-#Third model 
-
+Now we are going to see if the data has overdispersion or not.
 
 ```{r}
-modeliq = glm(Violent~Type+Region+Type:Region,family=quasipoisson,
-              offset=log(Enrollment),data=crimes)
-summary(modeliq)
+mean(crimes$Violent)
+var(crimes$Violent)
 ```
 
-Now, in order to compare a Poisson method with a quasipoisson method, we must check the Standard Errors.
-
-the Standard Errors are bigger in the quasipoisson model. This already tells us that the poisson model is better. Moreover, if we take a look at the p-values from the summary of the quasipoisson model, we can see that every variable stops being statistically significant, since every p-value is way too big. 
-
-#Fourth model: Negative Binomial
-
+As the variance is larger than the mean we can say that there is an overdisperssion in our data. To deal with that we can use both quasipoisson or negative binomial models. 
 
 ```{r}
-modelinb = glm.nb(Violent~Type+Region+Type:Region,
-                  weights=offset(log(Enrollment)),link=log,data=crimes)
-summary(modelinb)
+par(mfrow=c(1,2))
+plot(y=modeliq$residuals,x=modeliq$fitted.values,ylab = "Residuals",xlab = "Fitted",main = "Quasipoisson")
+plot(y=modelinb$residuals,x=modelinb$fitted.values,ylab = "Residuals",xlab = "Fitted",main = "Negative Binomial")
 ```
 
+From this we see that with the quasipoisson model we have a problem of heterocedasticity. Therefore the negative binomial model works better for this data. 
 
-last model returns a better result than the previous quasipoisson model. Some of the variables become significant again, some
-Standard Errors are smaller... However, it is not too different from the previous one 
 
-### 7. (2 points) The dataset ships2 (available in datasets for Chapter 6) concern a type of damage caused by waves to the forward section of cargo-carrying vessels. Develop a model for the rate of incidents per aggregate months of service. Check and correct for overdispersion (if necessary). Given the final model, answer the following questions:
+### 7. The dataset ships2 (available in datasets for Chapter 6) concern a type of damage caused by waves to the forward section of cargo-carrying vessels. Develop a model for the rate of incidents per aggregate months of service. Check and correct for overdispersion (if necessary). Given the final model, answer the following questions:
 
 - Which type of ship has the lowest and the highest risk of incidents? 
 - By how much does the incident rate increases after 1974?
@@ -307,14 +367,104 @@ The incident rates will increase a 29.25%.
 In the year 70, the ships had a 30.10% lower relative risk than the reference.
  
 
-### 8. (2.5 points) The aim of this task is to examine the relationship be- tween the number of physician office visits for a person (ofp) and a set
-of explanatory variables for individuals on Medicare. Their data are contained in the file dt.csv.
-The explanatory variables are number of hospital stays (hosp), number of chronic conditions (numchron), gender (gender; male = 1, female = 0), number of years of education (school), private insurance (privins; yes = 1, no = 0), healthexcellent and healthpoor, these two are self- perceived health status indicators that take on a value of yes = 1 or no = 0, and they cannot both be 1 (both equal to 0 indicates ?average? health). Using these data, complete the following:
-• Estimate the Poisson regression model to predict the number of physician office visits and interpret the coefficients
-• Compare the number of zero-visit counts in the data to the number predicted by the model and comment. Can you think of a possible explanation for why there are so many zeroes in the data?
-• Estimate the zero-inflated Poisson regression model to predict the number of physician office visits. Use all of the explanatory vari- ables for the log(μ) part of the model and no explanatory variables in the φ part of the model. Interpret the model fit results
-• Do the previous item again, but now use all of the explanatory variables to estimate φ. Interpret the model fit results and com- pare this model to the previous ZIP model using a LRT
-• Examine how well each model estimates the number of 0 counts
+### 8. The aim of this task is to examine the relationship be- tween the number of physician office visits for a person (ofp) and a set of explanatory variables for individuals on Medicare.
+
+```{r}
+medicare=read.table("Datasets_Chapter6/dt.csv",sep=",",header=TRUE)
+summary(medicare)
+
+medicare %<>% mutate(gender=factor(gender,levels = c(0,1),labels = c("female","male")),
+                     privins=factor(privins,levels = c(0,1),labels = c("no_priv_ins","priv_ins")),
+                     health_indicator=case_when(health_excellent==1~"excellent",
+                                                health_poor==1~"poor",
+                                                TRUE~"unknown")) %>% 
+dplyr::select(-health_excellent,-health_poor) %>% mutate(health_indicator=factor(health_indicator))
+summary(medicare)
+```
+
+- Estimate the Poisson regression model to predict the number of physician office visits and interpret the coefficients
+
+```{r}
+model_hospital_poisson=glm(data = medicare,ofp~.,family=poisson)
+summary(model_hospital_poisson)
+```
+
+Our reference level are females without private insurance and good self reported health. Therefore, the number of *ofp* will: 
+
+  * Increase with the number of inpatient stays *hosp*.
+  * Increase with the number of chronic conditions *numchron*
+  * Decrease if the patient is male *gender*
+  * Increase with the number of years of schooling *school*
+  * Increase if the patient has private insurance *privins*
+  * Increase slightly if the health indicator is unknown and more if poor *health_indicator*
+
+-Compare the number of zero-visit counts in the data to the number predicted by the model and comment. Can you think of a possible explanation for why there are so many zeroes in the data?
+
+Let's calculate the mean probability of producing a 0.
+
+```{r}
+sumando=exp(-exp(predict(model_hospital_poisson)))
+mean(sumando)
+```
+
+The actual mean number of 0 in the data is
+
+```{r}
+mean(medicare$ofp==0)
+```
+
+As we can see the model very bad as it is only predicting a 0.1% of the 0, whereas the total amount of 0 in the data set is a 15% of the data. Therefore we need another method that inflates the 0 in our predictions.
+
+A possible explanation for this large number of 0 in the dataset could be the fact that in America many people avoids going to doctor due to the expensive cost of healthcare.
+
+- Estimate the zero-inflated Poisson regression model to predict the number of physician office visits. Use all of the explanatory variables for the log($\mu$) part of the model and no explanatory variables in the $\phi$ part of the model. Interpret the model fit results.
+
+```{r}
+model_hosp_zero=zeroinfl(data=medicare,formula=ofp~.|1)
+summary(model_hosp_zero)
+```
+
+As we can see the coefficients are very similar to the ones obtained by the poisson model. The model for $\phi$ is constant, the probability of obtaining 0 due to the zero inflation is:
+
+```{r}
+1/(1+exp(-coef(model_hosp_zero)[9]))
+```
+
+- Do the previous item again, but now use all of the explanatory variables to estimate $\phi$. Interpret the model fit results and compare this model to the previous ZIP model using a LRT.
+
+```{r}
+model_hosp_zero2=zeroinfl(data=medicare,formula=ofp~.)
+summary(model_hosp_zero2)
+```
+
+The type of person that tend to avoid going to the doctor are those who do not have a private insurance and do not have a chronic disease. Also more males avoid going than females.
+
+Now we are going to compare models using LRT.
+
+```{r}
+lrt=2*(model_hosp_zero2$loglik-model_hosp_zero$loglik)
+df=model_hosp_zero$df.residual-model_hosp_zero2$df.residual
+1-pchisq(lrt,df)
+```
+
+Therefore we reject the NULL hypothesis so we keep the expanded model.
+
+- Examine how well each model estimates the number of 0 counts
+
+Let's calculate the mean probability of being 0 for each model.
+
+```{r}
+sumando2=predict(model_hosp_zero,type="prob")
+mean(sumando2[,1])
+sumando3=predict(model_hosp_zero2,type="prob")
+mean(sumando3[,1])
+```
+
+These probabilities are more align whit the proportion of 0 present in the data. 
+
+
+
+
 
 
 
