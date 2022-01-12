@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
+library(multcomp)
 ```
 
 
@@ -160,6 +161,70 @@ Being from Philadelphia, the patient is more likely to be sick if he is alcoholi
 
 ### 6. (1.5 point) Find the best model for the property crime rates used in chapter 6 and interpret the parameters
 
+
+```{r}
+crimes <- read.table("Campus_Crime.txt",header=TRUE)
+View(crimes)
+```
+
+#First model 
+
+We are interested primarily in differences in violent crime between institutional types controlling for difference in regions, so we fit a model with both Region and Type:
+
+```{r}
+modeltr = glm(Violent~Type+Region,family=poisson,offset=log(Enrollment),
+              data=crimes)
+summary(modeltr)
+```
+
+#Second model 
+
+
+```{r}
+modeli = glm(Violent~Type+Region+Type:Region,family=poisson, offset=log(Enrollment),
+             data=crimes)
+summary(modeli)
+```
+
+
+# To check which of these two models is the most optimal, we are going to use the anova(). 
+
+
+```{r}
+anova(modeltr,modeli,test = "Chisq")
+```
+
+# In this anova, we can see that the nule hypothesis assumes no interaction between Type and Region, while the alternative hypothesis 
+# assumes that there is interaction between them. The anova model has returned a p value of 4.459e-16, which is obviously pretty small
+# and it allows us to reject the nule hypothesis. Therefore, the interaction between Type and Region is indeed quite important for our model.
+# Therefore, it is the most optimal. 
+
+#Third model 
+
+
+```{r}
+modeliq = glm(Violent~Type+Region+Type:Region,family=quasipoisson,
+              offset=log(Enrollment),data=crimes)
+summary(modeliq)
+```
+
+Now, in order to compare a Poisson method with a quasipoisson method, we must check the Standard Errors.
+
+the Standard Errors are bigger in the quasipoisson model. This already tells us that the poisson model is better. Moreover, if we take a look at the p-values from the summary of the quasipoisson model, we can see that every variable stops being statistically significant, since every p-value is way too big. 
+
+#Fourth model: Negative Binomial
+
+
+```{r}
+modelinb = glm.nb(Violent~Type+Region+Type:Region,
+                  weights=offset(log(Enrollment)),link=log,data=crimes)
+summary(modelinb)
+```
+
+
+last model returns a better result than the previous quasipoisson model. Some of the variables become significant again, some
+Standard Errors are smaller... However, it is not too different from the previous one 
+
 ### 7. (2 points) The dataset ships2 (available in datasets for Chapter 6) concern a type of damage caused by waves to the forward section of cargo-carrying vessels. Develop a model for the rate of incidents per aggregate months of service. Check and correct for overdispersion (if necessary). Given the final model, answer the following questions:
 
 - Which type of ship has the lowest and the highest risk of incidents? 
@@ -175,52 +240,74 @@ data_ships$type=factor(data_ships$type)
 summary(data_ships)
 
 data_ships$rate=(data_ships$incidents/data_ships$service)*1000
-
-library(ggplot2)
-
+ggplot(data_ships,aes(x=year,y=rate)) + geom_boxplot(aes(col=type))
 ```
 
- - Which type of ship has the lowest and the highest risk of incidents?
+Now that we understand better the dataset we can begin to build our model.
  
 ```{r}
-library(multcomp)
-
-
 model_ships=glm(incidents~type+year+period,offset=log(service),family=poisson,data=data_ships)
 summary(model_ships)
 summary(glht(model_ships,mcp(type="Tukey")))
+data_ships %>% dplyr::group_by(year,type) %>% summarise(n_combinations=n())
+```
 
-model_ships2=glm(incidents~type+year+period+period:year,offset=log(service),family=poisson,data=data_ships)
-summary(model_ships2)
+We are not going to add interactions in the model because if for example we add the interaction between year and type we get 16 different interactions. Considering that our data set only contains 26 observation, if we add the interaction to the model there will be a lot of coefficients and therefore the model will be overfitted.
 
-anova(model_ships,model_ships2,test = "Chisq") #as the pvalue is higher than 0.05 we can accept the interaction
+Also we would like to see if the model has overdispersion.
 
-pchisq(model_ships2$deviance,model_ships$df.residual,lower.tail=FALSE) #We can assume model fits
-
+```{r}
 var(data_ships$incidents)
 mean(data_ships$incidents)
 ```
- As the variance is higer than the mean we can say that there is an overdispersion in our data.
- 
+
+As the variance is several times higher than the mean we can say that it has overdispersion. In order to solve that we could use quasipoisson or negative binomial models.
+
 ```{r}
-model_ships3=glm(incidents~type+year+period+type:year,offset=log(service),family=quasipoisson,data=data_ships)
-summary(model_ship3)
+model_ships2=glm(incidents~type+year+period,offset=log(service),family=quasipoisson,data=data_ships)
+summary(model_ships2)
 ```
- 
- 
- - By how much does the incident rate increases after 1974?
- - In which year where built the safest ships?
- 
+
+We can see that the dispersion parameter taken for the quasipoisson family is 2.033 which is larger than 1, which would be the parameter expected for absence of overdispersion. Therefore we are also going to obtain the negative binomial model to see if we obtain better results.
+
 ```{r}
-ggplot(data_ships,aes(x=year,y=rate)) + geom_boxplot(aes(col=type))
+model_ships3=glm.nb(incidents~type+year+period,weights=offset(log(service)),data=data_ships,link=log)
+summary(model_ships3)
 ```
+
+Both models could be use to deal with overdisperssion. To select one of them we are going to analyze the residuals vs fitted plots.
+
+```{r}
+par(mfrow=c(1,2))
+plot(y=model_ships2$residuals,x=model_ships2$fitted.values,ylab = "Residuals",xlab = "Fitted",main = "Quasipoisson")
+plot(y=model_ships3$residuals,x=model_ships3$fitted.values,ylab = "Residuals",xlab = "Fitted",main = "Negative Binomial")
+```
+
+We can see that for the negative binomial the variance is more constant, whereas for the quasipoisson the residual decreases as the the fitted increases. Therefore, we are going to use the negative binomial as our final model.
+
+- Which type of ship has the lowest and the highest risk of incidents?
+
+```{r}
+exp(model_ships3$coefficients)-1
+```
+
+<!-- Considering the relative risk for each coefficient, we can say that the ship with highest risk of incidents are those of type B, which are 4.3 times more risk than those of type A. Under the same reasoning -->
+
+The relative risk is calculated by: 
+
+$$log(\frac{\lambda_1}{\lambda_2})=e^\beta$$
+Given that the exponential function is a monotone increasing function we only have to compare the $\beta$, so as you can see in the table the most risk ones are ships of type B, whereas the lowest ones are those of type C.
+
+- By how much does the incident rate increases after 1974?
+
+The incident rates will increase a 29.25%.
+
+- In which year where built the safest ships?
+
+In the year 70, the ships had a 30.10% lower relative risk than the reference.
  
- The year were the ships built were the safest ones was in the 60's, where the rate of incident was very low for both types of ships.
 
-
-
-
-### 8. (2.5 points) The aim of this task is to examine the relationship be- tween the number of physician office visits for a person (ofp) and a set 2
+### 8. (2.5 points) The aim of this task is to examine the relationship be- tween the number of physician office visits for a person (ofp) and a set
 of explanatory variables for individuals on Medicare. Their data are contained in the file dt.csv.
 The explanatory variables are number of hospital stays (hosp), number of chronic conditions (numchron), gender (gender; male = 1, female = 0), number of years of education (school), private insurance (privins; yes = 1, no = 0), healthexcellent and healthpoor, these two are self- perceived health status indicators that take on a value of yes = 1 or no = 0, and they cannot both be 1 (both equal to 0 indicates ?average? health). Using these data, complete the following:
 • Estimate the Poisson regression model to predict the number of physician office visits and interpret the coefficients
